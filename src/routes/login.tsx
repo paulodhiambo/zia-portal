@@ -93,13 +93,19 @@ export function Auth({ defaultMode = "signin" }: { defaultMode?: "signin" | "sig
         toast.success("Workspace created successfully! Signing in...");
       }
 
-      const data = await apiFetch<{ token: string }>("/auth/login", "POST", {
+      const data = await apiFetch<{ token: string; user?: any; workspace?: any; merchant?: any }>("/auth/login", "POST", {
         email,
         password,
       });
 
       if (data && data.token) {
         localStorage.setItem("zia_portal_token", data.token);
+        if (data.user) {
+          localStorage.setItem("zia_portal_user", JSON.stringify(data.user));
+        }
+        if (data.workspace || data.merchant) {
+          localStorage.setItem("zia_portal_workspace", JSON.stringify(data.workspace || data.merchant));
+        }
         toast.success("Signed in successfully!");
         window.location.assign("/home");
       } else {
