@@ -42,14 +42,14 @@ function Landing() {
   const calcZiaCost = (vol: number, sh: typeof shares) => {
     const achCost = (vol * (sh.ach / 100)) * 0.0005; // 0.05% ACH
     const cardCost = (vol * (sh.card / 100)) * 0.012; // 1.2% Cards
-    const wireCost = ((vol * (sh.wire / 100)) / 10000) * 2.00; // $2.00 flat wire (assuming average $10k size)
+    const wireCost = ((vol * (sh.wire / 100)) / 10000) * 250.00; // KES 250.00 flat wire (assuming average 10k size)
     return achCost + cardCost + wireCost;
   };
 
   const calcLegacyCost = (vol: number, sh: typeof shares) => {
-    const achCost = (vol * (sh.ach / 100)) * 0.008; // 0.8% standard Stripe ACH (uncapped blended)
+    const achCost = (vol * (sh.ach / 100)) * 0.008; // 0.8% standard legacy ACH
     const cardCost = (vol * (sh.card / 100)) * 0.029; // 2.9% standard card fee
-    const wireCost = ((vol * (sh.wire / 100)) / 10000) * 15.00; // $15.00 standard legacy wire
+    const wireCost = ((vol * (sh.wire / 100)) / 10000) * 1500.00; // KES 1500.00 standard legacy wire
     return achCost + cardCost + wireCost;
   };
 
@@ -137,16 +137,13 @@ function Landing() {
                   <span>M-PESA</span>
                 </div>
                 
-                {/* KCB */}
-                <div className="flex items-center gap-1 font-bold text-xs text-ink select-none pointer-events-none">
-                  <span className="bg-[#8CC63F] text-white text-[8.5px] font-extrabold px-1 py-0.5 rounded tracking-normal">KCB</span>
-                  <span className="text-[9.5px] text-ink-3 uppercase font-mono tracking-widest font-normal">Bank</span>
-                </div>
-                
-                {/* PesaLink */}
-                <div className="flex items-center gap-0.5 font-bold text-xs select-none pointer-events-none">
-                  <span className="text-[#006097] font-extrabold">pesa</span>
-                  <span className="text-[#E51B24] font-extrabold font-light">link</span>
+                {/* Airtel */}
+                <div className="flex items-center gap-1.5 font-bold text-xs text-[#E31837] tracking-tight select-none pointer-events-none">
+                  <div className="grid h-4 w-4 place-items-center rounded-full bg-[#E31837] text-[9.5px] font-black text-white leading-none">
+                    a
+                  </div>
+                  <span className="font-extrabold lowercase text-[#E31837] tracking-tighter">airtel</span>
+                  <span className="text-[8.5px] bg-[#E31837]/15 text-[#E31837] font-semibold px-1 rounded uppercase tracking-wide">Money</span>
                 </div>
                 
                 {/* Paystack */}
@@ -163,7 +160,7 @@ function Landing() {
 
             <dl className="mt-8 grid grid-cols-3 gap-6 border-t border-line pt-6 text-left">
               {[
-                { k: "$184B", v: "Annualized volume" },
+                { k: "KES 24T", v: "Annualized volume" },
                 { k: "99.999%", v: "Ledger uptime" },
                 { k: "37", v: "Regulated entities" },
               ].map((m) => (
@@ -184,18 +181,18 @@ function Landing() {
             <div className="w-full rounded-2xl border border-line bg-card p-1 shadow-[0_30px_60px_-30px_rgba(15,23,42,0.25)]">
               <div className="rounded-xl bg-surface-2 px-5 py-4">
                 <div className="flex items-center justify-between text-xs text-ink-3">
-                  <span className="font-mono uppercase tracking-[0.2em]">Today · USD</span>
+                  <span className="font-mono uppercase tracking-[0.2em]">Today · KES</span>
                   <span className="font-mono">10:42 ET</span>
                 </div>
                 <div className="mt-3 font-display text-[40px] leading-none tracking-tight text-ink tabular">
-                  $42,500.00
+                  KES 42,500.00
                 </div>
                 <div className="mt-1 text-xs text-success">▲ 12.5% vs yesterday</div>
               </div>
               <div className="grid grid-cols-2 gap-px overflow-hidden rounded-b-xl bg-line">
                 {[
                   ["Successful", "1,248"],
-                  ["Pending payouts", "$128,450"],
+                  ["Pending payouts", "KES 128,450"],
                   ["Refund rate", "0.8%"],
                   ["Disputes open", "3"],
                 ].map(([k, v]) => (
@@ -269,7 +266,7 @@ function Landing() {
                   <div className="flex justify-between items-baseline">
                     <label className="text-xs font-semibold uppercase tracking-wider text-ink-2 font-mono">Monthly Processing</label>
                     <span className="font-display text-2xl text-ink font-semibold tabular">
-                      ${(volume / 1000000).toFixed(1)}M
+                      KES {(volume / 1000000).toFixed(1)}M
                     </span>
                   </div>
                   <input
@@ -282,9 +279,9 @@ function Landing() {
                     className="mt-3 h-1.5 w-full appearance-none rounded-lg bg-line accent-ink cursor-pointer focus:outline-none"
                   />
                   <div className="flex justify-between text-[10px] text-ink-3 font-mono mt-1">
-                    <span>$100K</span>
-                    <span>$10M</span>
-                    <span>$20M</span>
+                    <span>KES 100K</span>
+                    <span>KES 10M</span>
+                    <span>KES 20M</span>
                   </div>
                 </div>
 
@@ -323,7 +320,7 @@ function Landing() {
                 <div>
                   <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-cobalt font-semibold">Your Estimated Savings</span>
                   <div className="mt-2 font-display text-[44px] font-semibold leading-none tracking-tight text-ink tabular">
-                    ${Math.round(savings).toLocaleString()}<span className="text-xs font-normal text-ink-3"> / month</span>
+                    KES {Math.round(savings).toLocaleString()}<span className="text-xs font-normal text-ink-3"> / month</span>
                   </div>
                   <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-medium text-success">
                     Save {savingsPercent}% in transaction costs
@@ -334,13 +331,13 @@ function Landing() {
                   <div className="flex justify-between items-center">
                     <span className="text-ink-2">Zia Blended Fee</span>
                     <span className="font-mono text-ink font-medium tabular">
-                      ${Math.round(ziaCost).toLocaleString()}
+                      KES {Math.round(ziaCost).toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-ink-3">
                     <span>Legacy Provider (2.9% + standard)</span>
                     <span className="font-mono tabular line-through">
-                      ${Math.round(legacyCost).toLocaleString()}
+                      KES {Math.round(legacyCost).toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -352,11 +349,11 @@ function Landing() {
                   <div className="bg-card py-3">
                     <div className="font-mono text-[9px] uppercase tracking-wider text-ink-3">ACH Transfers</div>
                     <div className="mt-1 font-semibold text-ink">0.05%</div>
-                    <div className="text-[9px] text-ink-3 mt-0.5 font-mono">Capped at $5</div>
+                    <div className="text-[9px] text-ink-3 mt-0.5 font-mono">Capped at KES 500</div>
                   </div>
                   <div className="bg-card py-3">
                     <div className="font-mono text-[9px] uppercase tracking-wider text-ink-3">Fedwire Wires</div>
-                    <div className="mt-1 font-semibold text-ink">$2.00</div>
+                    <div className="mt-1 font-semibold text-ink">KES 250.00</div>
                     <div className="text-[9px] text-ink-3 mt-0.5 font-mono">Flat incoming</div>
                   </div>
                   <div className="bg-card py-3">
