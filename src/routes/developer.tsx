@@ -73,10 +73,10 @@ function Developer() {
       .then((data) => {
         const list = Array.isArray(data) ? data : (data?.keys || []);
         const mapped = list.map((k: any) => ({
-          name: k.name || `${k.type || "Secret"} Key`,
-          key: k.key,
-          env: k.env || "live",
-          last: k.lastUsed || "Never",
+          name: k.name || "API Key",
+          key: k.prefix ? `${k.prefix}••••` : (k.key || "••••"),
+          env: k.environment || k.env || "live",
+          last: k.createdAt || k.lastUsed || "Never",
         }));
         setKeys(mapped);
       })
