@@ -63,6 +63,42 @@ function Home() {
   ]);
 
   const [isLoading, setIsLoading] = React.useState(false);
+  const [recentTxns, setRecentTxns] = React.useState<any[]>(INITIAL_TXNS);
+
+  const formatAmt = (amtStr: string) => {
+    const normalized = amtStr.replace(/[^0-9.-]/g, "");
+    const val = parseFloat(normalized);
+    if (isNaN(val)) return amtStr;
+    const isNegative = amtStr.startsWith("−") || amtStr.startsWith("-") || val < 0;
+    const sign = isNegative ? "−" : "+";
+    const absVal = Math.abs(val);
+    return `${sign}${currencySymbol}${absVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const fetchRecentTransactions = React.useCallback(() => {
+    if (isMockMode) {
+      setRecentTxns(INITIAL_TXNS);
+      return Promise.resolve();
+    }
+    return apiFetch<{ transactions: any[] }>("/transactions")
+      .then((data) => {
+        const list = data?.transactions || [];
+        const mapped = list.map((t: any) => ({
+          id: t.id,
+          time: t.date || "Just now",
+          who: t.counterparty || "Payment Received",
+          desc: t.method || "Direct Rails",
+          amt: t.amount,
+          status: t.status || "Succeeded",
+          tone: (t.status === "Succeeded" ? "success" : t.status === "Pending" ? "warning" : t.status === "Refunded" ? "neutral" : "danger") as any,
+        }));
+        setRecentTxns(mapped);
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch recent transactions:", err);
+        setRecentTxns(INITIAL_TXNS);
+      });
+  }, [isMockMode]);
 
   React.useEffect(() => {
     if (isMockMode) {
@@ -71,6 +107,7 @@ function Home() {
       setTodayVolume(42500.00);
       setSuccessfulPayments(1248);
       setPendingPayouts(128450.00);
+      setRecentTxns(INITIAL_TXNS);
       setChecklist([
         { d: "Verify business entity", t: "Done", ok: true },
         { d: "Invite finance team", t: "2 of 4", ok: true },
@@ -81,41 +118,41 @@ function Home() {
 
     setIsLoading(true);
     
-    // Fetch profile and overview metrics concurrently in live mode
-    apiFetch<any>("/profile")
-      .then((profileData) => {
-        setUserName(profileData?.user?.name || "Acme Corp");
-      })
-      .catch((err) => {
-        console.warn("Failed to fetch user profile name:", err);
-        setUserName("Acme Corp");
-      });
-
-    apiFetch<any>("/dashboard/overview")
-      .then((data) => {
-        setTreasuryBalance(data.treasuryBalance !== undefined ? data.treasuryBalance : 2481302.18);
-        setTodayVolume(data.todayVolume !== undefined ? data.todayVolume : 42500.00);
-        setSuccessfulPayments(data.successfulPayments !== undefined ? data.successfulPayments : 1248);
-        setPendingPayouts(data.pendingPayouts !== undefined ? data.pendingPayouts : 128450.00);
-        if (data.checklist) {
-          setChecklist(data.checklist.map((item: any) => ({
-            d: item.task,
-            t: item.status,
-            ok: item.completed,
-          })));
-        }
-      })
-      .catch(() => {
-        // Safe fallback values
-        setTreasuryBalance(2481302.18);
-        setTodayVolume(42500.00);
-        setSuccessfulPayments(1248);
-        setPendingPayouts(128450.00);
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
-  }, [isMockMode]);
+    Promise.all([
+      apiFetch<any>("/profile")
+        .then((profileData) => {
+          setUserName(profileData?.user?.name || "Acme Corp");
+        })
+        .catch((err) => {
+          console.warn("Failed to fetch user profile name:", err);
+          setUserName("Acme Corp");
+        }),
+      fetchRecentTransactions(),
+      apiFetch<any>("/dashboard/overview")
+        .then((data) => {
+          setTreasuryBalance(data.treasuryBalance !== undefined ? data.treasuryBalance : 2481302.18);
+          setTodayVolume(data.todayVolume !== undefined ? data.todayVolume : 42500.00);
+          setSuccessfulPayments(data.successfulPayments !== undefined ? data.successfulPayments : 1248);
+          setPendingPayouts(data.pendingPayouts !== undefined ? data.pendingPayouts : 128450.00);
+          if (data.checklist) {
+            setChecklist(data.checklist.map((item: any) => ({
+              d: item.task,
+              t: item.status,
+              ok: item.completed,
+            })));
+          }
+        })
+        .catch(() => {
+          // Safe fallback values
+          setTreasuryBalance(2481302.18);
+          setTodayVolume(42500.00);
+          setSuccessfulPayments(1248);
+          setPendingPayouts(128450.00);
+        })
+    ]).finally(() => {
+      setIsLoading(false);
+    });
+  }, [isMockMode, fetchRecentTransactions]);
 
   if (isLoading && !isMockMode) {
     return (
@@ -333,15 +370,15 @@ function Home() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
-                  {INITIAL_TXNS.slice(0, 5).map((t) => (
+                  {recentTxns.slice(0, 5).map((t) => (
                     <tr key={t.id} className="hover:bg-surface-2/60">
                       <td className="px-5 py-3 text-ink-3 tabular">{t.time}</td>
                       <td className="px-5 py-3">
                         <div className="font-medium text-ink">{t.who}</div>
                         <div className="text-xs text-ink-3">{t.desc}</div>
                       </td>
-                      <td className={`px-5 py-3 text-right font-mono ${t.amt.startsWith("−") ? "text-destructive" : "text-ink"}`}>
-                        {t.amt}
+                      <td className={`px-5 py-3 text-right font-mono ${formatAmt(t.amt).startsWith("−") ? "text-destructive" : "text-ink"}`}>
+                        {formatAmt(t.amt)}
                       </td>
                       <td className="px-5 py-3">
                         <Pill tone={t.tone}>{t.status}</Pill>

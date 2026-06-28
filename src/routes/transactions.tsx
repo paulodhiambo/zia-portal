@@ -125,6 +125,16 @@ function Transactions() {
     return isNaN(val) ? 0 : val;
   };
 
+  const formatAmt = (amtStr: string) => {
+    const normalized = amtStr.replace(/[^0-9.-]/g, "");
+    const val = parseFloat(normalized);
+    if (isNaN(val)) return amtStr;
+    const isNegative = amtStr.includes("−") || amtStr.includes("-") || val < 0;
+    const sign = isNegative ? "−" : "+";
+    const absVal = Math.abs(val);
+    return `${sign}${currencySymbol}${absVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   const grossVolume = rows
     .filter((r) => r.status === "Succeeded" && parseAmount(r.amount) > 0)
     .reduce((sum, r) => sum + parseAmount(r.amount), 0);
@@ -231,8 +241,8 @@ function Transactions() {
                     <td className="px-5 py-3.5 font-mono text-xs text-ink-3">{r.id}</td>
                     <td className="px-5 py-3.5 font-medium text-ink">{r.counterparty}</td>
                     <td className="px-5 py-3.5 text-ink-2">{r.method}</td>
-                    <td className={`px-5 py-3.5 text-right font-mono ${String(r.amount).startsWith("−") ? "text-destructive" : "text-ink"}`}>
-                      {r.amount}
+                    <td className={`px-5 py-3.5 text-right font-mono ${formatAmt(r.amount).startsWith("−") ? "text-destructive" : "text-ink"}`}>
+                      {formatAmt(r.amount)}
                     </td>
                     <td className="px-5 py-3.5">
                       <Pill tone={r.tone}>{r.status}</Pill>
