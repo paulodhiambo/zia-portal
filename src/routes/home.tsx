@@ -77,10 +77,10 @@ function Home() {
 
     apiFetch<any>("/dashboard/overview")
       .then((data) => {
-        setTreasuryBalance(data.treasuryBalance || 2481302.18);
-        setTodayVolume(data.todayVolume || 42500.00);
-        setSuccessfulPayments(data.successfulPayments || 1248);
-        setPendingPayouts(data.pendingPayouts || 128450.00);
+        setTreasuryBalance(data.treasuryBalance !== undefined ? data.treasuryBalance : 2481302.18);
+        setTodayVolume(data.todayVolume !== undefined ? data.todayVolume : 42500.00);
+        setSuccessfulPayments(data.successfulPayments !== undefined ? data.successfulPayments : 1248);
+        setPendingPayouts(data.pendingPayouts !== undefined ? data.pendingPayouts : 128450.00);
         if (data.checklist) {
           setChecklist(data.checklist.map((item: any) => ({
             d: item.task,

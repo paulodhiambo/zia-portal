@@ -118,6 +118,31 @@ function Transactions() {
     );
   }
 
+  // Dynamic stats calculations
+  const parseAmount = (amtStr: string) => {
+    const normalized = amtStr.replace(/[^0-9.-]/g, "");
+    const val = parseFloat(normalized);
+    return isNaN(val) ? 0 : val;
+  };
+
+  const grossVolume = rows
+    .filter((r) => r.status === "Succeeded" && parseAmount(r.amount) > 0)
+    .reduce((sum, r) => sum + parseAmount(r.amount), 0);
+
+  const succeededCount = rows.filter((r) => r.status === "Succeeded").length;
+  const pendingCount = rows.filter((r) => r.status === "Pending").length;
+  const disputedCount = rows.filter((r) => r.status === "Disputed").length;
+
+  const workspaceStr = typeof window !== "undefined" ? localStorage.getItem("zia_portal_workspace") : null;
+  let currencySymbol = "$";
+  if (workspaceStr) {
+    try {
+      const workspace = JSON.parse(workspaceStr);
+      if (workspace.defaultCurrency === "KES") currencySymbol = "KES ";
+      else if (workspace.defaultCurrency === "EUR") currencySymbol = "€";
+    } catch {}
+  }
+
   return (
     <AppShell
       eyebrow="Last 24 hours"
@@ -134,10 +159,22 @@ function Transactions() {
       }
     >
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard label="Gross volume" value="$74,810.55" delta="▲ 8.1%" hint="vs prior 24h" tone="up" />
-        <StatCard label="Succeeded" value="912" />
-        <StatCard label="Pending" value="14" />
-        <StatCard label="Disputed" value="3" delta="▲ 1" hint="last hour" tone="down" />
+        <StatCard 
+          label="Gross volume" 
+          value={`${currencySymbol}${grossVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
+          delta={isMockMode ? "▲ 8.1%" : undefined} 
+          hint={isMockMode ? "vs prior 24h" : "across successful txs"} 
+          tone={isMockMode ? "up" : undefined} 
+        />
+        <StatCard label="Succeeded" value={succeededCount.toLocaleString()} />
+        <StatCard label="Pending" value={pendingCount.toLocaleString()} />
+        <StatCard 
+          label="Disputed" 
+          value={disputedCount.toLocaleString()} 
+          delta={isMockMode ? "▲ 1" : undefined} 
+          hint={isMockMode ? "last hour" : "unresolved conflicts"} 
+          tone={isMockMode ? "down" : undefined} 
+        />
       </div>
 
       <SectionCard padded={false}>
