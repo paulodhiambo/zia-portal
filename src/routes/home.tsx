@@ -34,6 +34,7 @@ function Home() {
   const { isMockMode } = useApiMode();
 
   // Metrics states
+  const [userName, setUserName] = React.useState("Acme Corp");
   const [treasuryBalance, setTreasuryBalance] = React.useState(2481302.18);
   const [todayVolume, setTodayVolume] = React.useState(42500.00);
   const [successfulPayments, setSuccessfulPayments] = React.useState(1248);
@@ -48,6 +49,7 @@ function Home() {
 
   React.useEffect(() => {
     if (isMockMode) {
+      setUserName("Acme Corp");
       setTreasuryBalance(2481302.18);
       setTodayVolume(42500.00);
       setSuccessfulPayments(1248);
@@ -61,6 +63,17 @@ function Home() {
     }
 
     setIsLoading(true);
+    
+    // Fetch profile and overview metrics concurrently in live mode
+    apiFetch<any>("/profile")
+      .then((profileData) => {
+        setUserName(profileData.name || "Acme Corp");
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch user profile name:", err);
+        setUserName("Acme Corp");
+      });
+
     apiFetch<any>("/dashboard/overview")
       .then((data) => {
         setTreasuryBalance(data.treasuryBalance || 2481302.18);
@@ -90,7 +103,7 @@ function Home() {
   return (
     <AppShell
       eyebrow="Tuesday · October 24, 2026"
-      title="Good morning, Acme Corp."
+      title={`Good morning, ${userName}.`}
       actions={
         <>
           <button className="inline-flex h-9 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-surface-2 cursor-pointer">
