@@ -219,7 +219,7 @@ function Landing() {
               {
                 icon: ShieldCheck,
                 title: "Treasury, not a wrapper.",
-                body: "Direct rails into Fedwire, SEPA, FPS, and 14 ACH-equivalents. No partner banks pretending to be infrastructure.",
+                body: "Direct rails into M-Pesa, Airtel Money, and Paystack. No partner banks pretending to be infrastructure.",
               },
               {
                 icon: Zap,
