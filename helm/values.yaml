@@ -3,7 +3,7 @@ replicaCount: 2
 image:
   repository: ghcr.io/paulodhiambo/zia-portal
   pullPolicy: IfNotPresent
-  tag: 0a9d281
+  tag: 87c6e17
 
 service:
   type: ClusterIP
