@@ -1,6 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Check } from "lucide-react";
 import * as React from "react";
+import { useApiMode } from "@/hooks/use-api-mode";
+import { apiFetch } from "@/lib/api";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Sign in — Zia Merchant" }] }),
@@ -22,11 +25,50 @@ export function Auth({ defaultMode = "signin" }: { defaultMode?: "signin" | "sig
   // Shared fields
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const { isMockMode } = useApiMode();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate auth success and redirect
-    window.location.assign("/home");
+    if (isMockMode) {
+      toast.success(mode === "signin" ? "Signed in successfully (Mock Mode)" : "Workspace created (Mock Mode)");
+      window.location.assign("/home");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (mode === "signup") {
+        await apiFetch<void>("/auth/signup", "POST", {
+          name,
+          email,
+          company,
+          country: "KE",
+          currency: "KES",
+          password,
+        });
+        toast.success("Workspace created successfully! Signing in...");
+      }
+
+      const data = await apiFetch<{ token: string }>("/auth/login", "POST", {
+        email,
+        password,
+      });
+
+      if (data && data.token) {
+        localStorage.setItem("zia_portal_token", data.token);
+        toast.success("Signed in successfully!");
+        window.location.assign("/home");
+      } else {
+        throw new Error("No token returned from server");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Authentication failed");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -176,10 +218,11 @@ export function Auth({ defaultMode = "signin" }: { defaultMode?: "signin" | "sig
 
             <button
               type="submit"
-              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-ink text-sm font-medium text-primary-foreground hover:bg-ink/90 cursor-pointer mt-2"
+              disabled={isSubmitting}
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-ink text-sm font-medium text-primary-foreground hover:bg-ink/90 cursor-pointer mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {mode === "signin" ? "Continue" : "Create workspace"}{" "}
-              <ArrowRight className="h-4 w-4" />
+              {isSubmitting ? "Processing..." : (mode === "signin" ? "Continue" : "Create workspace")}{" "}
+              {!isSubmitting && <ArrowRight className="h-4 w-4" />}
             </button>
           </form>
 

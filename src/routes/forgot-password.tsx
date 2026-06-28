@@ -2,6 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
+import { useApiMode } from "@/hooks/use-api-mode";
+import { apiFetch } from "@/lib/api";
 
 export const Route = createFileRoute("/forgot-password")({
   head: () => ({ meta: [{ title: "Reset password — Zia" }] }),
@@ -11,13 +13,31 @@ export const Route = createFileRoute("/forgot-password")({
 function ForgotPassword() {
   const [email, setEmail] = React.useState("");
   const [submitted, setSubmitted] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const { isMockMode } = useApiMode();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
 
-    setSubmitted(true);
-    toast.success(`Reset link sent to ${email}`);
+    if (isMockMode) {
+      setSubmitted(true);
+      toast.success(`Reset link sent to ${email} (Mock Mode)`);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await apiFetch<void>("/auth/forgot-password", "POST", { email });
+      setSubmitted(true);
+      toast.success(`Reset link sent to ${email}`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to send reset link");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -75,9 +95,11 @@ function ForgotPassword() {
 
                 <button
                   type="submit"
-                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-ink text-sm font-medium text-primary-foreground hover:bg-ink/90 cursor-pointer"
+                  disabled={isSubmitting}
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-ink text-sm font-medium text-primary-foreground hover:bg-ink/90 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Send reset link <ArrowRight className="h-4 w-4" />
+                  {isSubmitting ? "Sending..." : "Send reset link"}{" "}
+                  {!isSubmitting && <ArrowRight className="h-4 w-4" />}
                 </button>
               </form>
             </>
@@ -93,9 +115,17 @@ function ForgotPassword() {
               
               <div className="mt-8 space-y-3">
                 <button
-                  onClick={() => {
-                    setSubmitted(false);
-                    toast.success("Resent password reset link");
+                  onClick={async () => {
+                    if (isMockMode) {
+                      toast.success("Resent password reset link (Mock Mode)");
+                      return;
+                    }
+                    try {
+                      await apiFetch<void>("/auth/forgot-password", "POST", { email });
+                      toast.success("Resent password reset link");
+                    } catch (err: any) {
+                      toast.error(err.message || "Failed to resend reset link");
+                    }
                   }}
                   className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-line bg-surface text-sm font-medium text-ink hover:bg-surface-2 cursor-pointer"
                 >

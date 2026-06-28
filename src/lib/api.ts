@@ -31,11 +31,13 @@ export async function apiFetch<T>(
   const apiBase = import.meta.env.VITE_API_URL || "";
   const url = `${apiBase}/api/v1${path}`;
 
+  const portalToken = typeof window !== "undefined" ? localStorage.getItem("zia_portal_token") : null;
   const options: RequestInit = {
     method,
     headers: {
       "Content-Type": "application/json",
       "Accept": "application/json",
+      ...(portalToken ? { "Authorization": `Bearer ${portalToken}` } : {}),
     },
   };
 
