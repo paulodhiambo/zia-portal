@@ -4,6 +4,8 @@ import * as React from "react";
 import { toast } from "sonner";
 
 import { AppShell, Pill, SectionCard } from "@/components/app-shell";
+import { useApiMode } from "@/hooks/use-api-mode";
+import { apiFetch } from "@/lib/api";
 import {
   Dialog,
   DialogClose,
@@ -46,8 +48,10 @@ const INITIAL_HOOKS: WebhookEndpoint[] = [
 ];
 
 function Developer() {
+  const { isMockMode } = useApiMode();
   const [keys, setKeys] = React.useState<ApiKey[]>(INITIAL_KEYS);
   const [hooks, setHooks] = React.useState<WebhookEndpoint[]>(INITIAL_HOOKS);
+  const [isLoading, setIsLoading] = React.useState(false);
 
   // Key creation state
   const [keyDialogOpen, setKeyDialogOpen] = React.useState(false);
@@ -60,32 +64,99 @@ function Developer() {
   const [hookUrl, setHookUrl] = React.useState("");
   const [hookStatus, setHookStatus] = React.useState("Healthy");
 
-  const handleCreateKey = (e: React.FormEvent) => {
+  const fetchKeys = React.useCallback(() => {
+    if (isMockMode) {
+      setKeys(INITIAL_KEYS);
+      return;
+    }
+    apiFetch<any[]>("/developer/keys")
+      .then((data) => {
+        const mapped = data.map((k: any) => ({
+          name: k.name || `${k.type || "Secret"} Key`,
+          key: k.key,
+          env: k.env || "live",
+          last: k.lastUsed || "Never",
+        }));
+        setKeys(mapped);
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch live API keys:", err);
+        setKeys(INITIAL_KEYS);
+      });
+  }, [isMockMode]);
+
+  const fetchWebhooks = React.useCallback(() => {
+    if (isMockMode) {
+      setHooks(INITIAL_HOOKS);
+      return;
+    }
+    apiFetch<any[]>("/developer/webhooks")
+      .then((data) => {
+        const mapped = data.map((h: any) => ({
+          url: h.url,
+          events: h.events ?? 0,
+          status: h.status === "active" ? "Healthy" : (h.status === "inactive" ? "Paused" : (h.status || "Healthy")),
+        }));
+        setHooks(mapped);
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch live webhooks:", err);
+        setHooks(INITIAL_HOOKS);
+      });
+  }, [isMockMode]);
+
+  React.useEffect(() => {
+    fetchKeys();
+    fetchWebhooks();
+  }, [fetchKeys, fetchWebhooks]);
+
+  const handleCreateKey = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!keyName) return;
 
-    const randomSuffix = Math.random().toString(36).substring(2, 8);
-    const prefix = keyType === "Server" ? "sk" : "pk";
-    const generatedKey = `${prefix}_${keyEnv}_••••_${randomSuffix}`;
+    if (isMockMode) {
+      const randomSuffix = Math.random().toString(36).substring(2, 8);
+      const prefix = keyType === "Server" ? "sk" : "pk";
+      const generatedKey = `${prefix}_${keyEnv}_••••_${randomSuffix}`;
 
-    const newKey: ApiKey = {
-      name: `${keyName} · ${keyType}`,
-      key: generatedKey,
-      env: keyEnv,
-      last: "Just now",
-    };
+      const newKey: ApiKey = {
+        name: `${keyName} · ${keyType}`,
+        key: generatedKey,
+        env: keyEnv,
+        last: "Just now",
+      };
 
-    setKeys((prev) => [newKey, ...prev]);
-    setKeyDialogOpen(false);
-    toast.success(`API Key "${newKey.name}" created successfully`);
+      setKeys((prev) => [newKey, ...prev]);
+      setKeyDialogOpen(false);
+      toast.success(`API Key "${newKey.name}" created successfully`);
+      setKeyName("");
+      setKeyEnv("live");
+      setKeyType("Server");
+      return;
+    }
 
-    // Reset Form
-    setKeyName("");
-    setKeyEnv("live");
-    setKeyType("Server");
+    setIsLoading(true);
+    try {
+      await apiFetch<any>("/developer/keys/create", "POST", {
+        name: keyName,
+        env: keyEnv,
+        type: keyType === "Server" ? "Secret" : "Publishable",
+      });
+      toast.success(`API Key "${keyName}" created successfully`);
+      fetchKeys();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to create API key");
+    } finally {
+      setIsLoading(false);
+      setKeyDialogOpen(false);
+      setKeyName("");
+      setKeyEnv("live");
+      setKeyType("Server");
+    }
   };
 
-  const handleAddWebhook = (e: React.FormEvent) => {
+  const handleAddWebhook = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hookUrl) return;
 
@@ -97,24 +168,43 @@ function Developer() {
       return;
     }
 
-    if (hooks.some((h) => h.url.toLowerCase() === hookUrl.toLowerCase())) {
-      toast.error("This webhook endpoint is already registered.");
+    if (isMockMode) {
+      if (hooks.some((h) => h.url.toLowerCase() === hookUrl.toLowerCase())) {
+        toast.error("This webhook endpoint is already registered.");
+        return;
+      }
+
+      const newHook: WebhookEndpoint = {
+        url: hookUrl,
+        events: 0,
+        status: hookStatus,
+      };
+
+      setHooks((prev) => [newHook, ...prev]);
+      setHookDialogOpen(false);
+      toast.success(`Webhook endpoint registered for ${hookUrl}`);
+      setHookUrl("");
+      setHookStatus("Healthy");
       return;
     }
 
-    const newHook: WebhookEndpoint = {
-      url: hookUrl,
-      events: 0,
-      status: hookStatus,
-    };
-
-    setHooks((prev) => [newHook, ...prev]);
-    setHookDialogOpen(false);
-    toast.success(`Webhook endpoint registered for ${hookUrl}`);
-
-    // Reset Form
-    setHookUrl("");
-    setHookStatus("Healthy");
+    setIsLoading(true);
+    try {
+      await apiFetch<any>("/developer/webhooks/create", "POST", {
+        url: hookUrl,
+        status: hookStatus === "Healthy" ? "active" : "inactive",
+      });
+      toast.success(`Webhook endpoint registered for ${hookUrl}`);
+      fetchWebhooks();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to register webhook");
+    } finally {
+      setIsLoading(false);
+      setHookDialogOpen(false);
+      setHookUrl("");
+      setHookStatus("Healthy");
+    }
   };
 
   const handleCopyKey = (keyString: string) => {
