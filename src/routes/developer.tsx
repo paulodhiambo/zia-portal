@@ -25,6 +25,7 @@ export const Route = createFileRoute("/developer")({
 interface ApiKey {
   name: string;
   key: string;
+  displayKey: string;
   env: string;
   last: string;
 }
@@ -35,10 +36,24 @@ interface WebhookEndpoint {
   status: string;
 }
 
+interface WebhookEvent {
+  event: string;
+  status: string | number;
+  time: string;
+}
+
+const INITIAL_EVENTS: WebhookEvent[] = [
+  { event: "charge.succeeded", status: "200", time: "10:42:14" },
+  { event: "payout.created", status: "200", time: "10:31:02" },
+  { event: "dispute.opened", status: "200", time: "08:47:33" },
+  { event: "customer.updated", status: "200", time: "08:12:01" },
+  { event: "charge.refunded", status: "200", time: "07:55:40" },
+];
+
 const INITIAL_KEYS: ApiKey[] = [
-  { name: "Production · Server", key: "sk_live_••••_8Q21f3", env: "live", last: "12 min ago" },
-  { name: "Production · Publishable", key: "pk_live_••••_X4nP", env: "live", last: "3 min ago" },
-  { name: "Sandbox · Server", key: "sk_test_••••_M0e2a", env: "test", last: "1h ago" },
+  { name: "Production · Server", key: "zia_live_2f6a7d8e9f0a1b2c3d4e5f6a7d8e9f0a", displayKey: "sk_live_••••_8Q21f3", env: "live", last: "12 min ago" },
+  { name: "Production · Publishable", key: "zia_live_x4npy8q2z1b0c9a7f5d3e2d1c0b9a8f7", displayKey: "pk_live_••••_X4nP", env: "live", last: "3 min ago" },
+  { name: "Sandbox · Server", key: "zia_test_m0e2a8q2z1b0c9a7f5d3e2d1c0b9a8f7", displayKey: "sk_test_••••_M0e2a", env: "test", last: "1h ago" },
 ];
 
 const INITIAL_HOOKS: WebhookEndpoint[] = [
@@ -51,6 +66,7 @@ function Developer() {
   const { isMockMode } = useApiMode();
   const [keys, setKeys] = React.useState<ApiKey[]>(INITIAL_KEYS);
   const [hooks, setHooks] = React.useState<WebhookEndpoint[]>(INITIAL_HOOKS);
+  const [events, setEvents] = React.useState<WebhookEvent[]>(INITIAL_EVENTS);
   const [isLoading, setIsLoading] = React.useState(false);
 
   // Key creation state
@@ -71,13 +87,18 @@ function Developer() {
     }
     apiFetch<any>("/developer/keys")
       .then((data) => {
+        const fullKeysMap = JSON.parse(localStorage.getItem("zia_full_keys") || "{}");
         const list = Array.isArray(data) ? data : (data?.keys || []);
-        const mapped = list.map((k: any) => ({
-          name: k.name || "API Key",
-          key: k.prefix ? `${k.prefix}••••` : (k.key || "••••"),
-          env: k.environment || k.env || "live",
-          last: k.createdAt || k.lastUsed || "Never",
-        }));
+        const mapped = list.map((k: any) => {
+          const matchedFullKey = k.prefix ? fullKeysMap[k.prefix] : null;
+          return {
+            name: k.name || "API Key",
+            key: matchedFullKey || k.key || (k.prefix ? `${k.prefix}••••` : "••••"),
+            displayKey: k.prefix ? `${k.prefix}••••` : "••••",
+            env: k.environment || k.env || "live",
+            last: k.createdAt || k.lastUsed || "Never",
+          };
+        });
         setKeys(mapped);
       })
       .catch((err) => {
@@ -107,10 +128,32 @@ function Developer() {
       });
   }, [isMockMode]);
 
+  const fetchEvents = React.useCallback(() => {
+    if (isMockMode) {
+      setEvents(INITIAL_EVENTS);
+      return;
+    }
+    apiFetch<any>("/developer/webhooks/events")
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data?.events || []);
+        const mapped = list.map((item: any) => ({
+          event: item.type || item.event || item.name || "event.triggered",
+          status: item.status || item.statusCode || item.code || 200,
+          time: item.timestamp || item.time || item.createdAt || "Just now",
+        }));
+        setEvents(mapped);
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch live webhooks events:", err);
+        setEvents(INITIAL_EVENTS);
+      });
+  }, [isMockMode]);
+
   React.useEffect(() => {
     fetchKeys();
     fetchWebhooks();
-  }, [fetchKeys, fetchWebhooks]);
+    fetchEvents();
+  }, [fetchKeys, fetchWebhooks, fetchEvents]);
 
   const handleCreateKey = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,10 +163,12 @@ function Developer() {
       const randomSuffix = Math.random().toString(36).substring(2, 8);
       const prefix = keyType === "Server" ? "sk" : "pk";
       const generatedKey = `${prefix}_${keyEnv}_••••_${randomSuffix}`;
+      const mockFullKey = `${prefix}_${keyEnv}_${randomSuffix}7d8e9f0a1b2c3d4e5f6a`;
 
       const newKey: ApiKey = {
         name: `${keyName} · ${keyType}`,
-        key: generatedKey,
+        key: mockFullKey,
+        displayKey: generatedKey,
         env: keyEnv,
         last: "Just now",
       };
@@ -139,11 +184,20 @@ function Developer() {
 
     setIsLoading(true);
     try {
-      await apiFetch<any>("/developer/keys/create", "POST", {
+      const data = await apiFetch<any>("/developer/keys/create", "POST", {
         name: keyName,
         env: keyEnv,
         type: keyType === "Server" ? "Secret" : "Publishable",
       });
+
+      if (data && data.key) {
+        // Save the raw full key to local storage mapped by prefix
+        const prefix = data.key.substring(0, 12);
+        const fullKeysMap = JSON.parse(localStorage.getItem("zia_full_keys") || "{}");
+        fullKeysMap[prefix] = data.key;
+        localStorage.setItem("zia_full_keys", JSON.stringify(fullKeysMap));
+      }
+
       toast.success(`API Key "${keyName}" created successfully`);
       fetchKeys();
     } catch (err: any) {
@@ -366,7 +420,7 @@ function Developer() {
                       <span className="text-sm font-medium text-ink">{k.name}</span>
                       <Pill tone={k.env === "live" ? "danger" : "info"}>{k.env}</Pill>
                     </div>
-                    <code className="mt-1 block truncate font-mono text-xs text-ink-3">{k.key}</code>
+                    <code className="mt-1 block truncate font-mono text-xs text-ink-3">{k.displayKey}</code>
                   </div>
                   <div className="hidden text-xs text-ink-3 md:block">Used {k.last}</div>
                   <button
@@ -442,23 +496,25 @@ console.log(charge.id, charge.status);
           </SectionCard>
 
           <SectionCard title="Recent events" padded={false}>
-            <ul className="divide-y divide-line text-sm">
-              {[
-                ["charge.succeeded", "200", "10:42:14"],
-                ["payout.created", "200", "10:31:02"],
-                ["dispute.opened", "200", "08:47:33"],
-                ["customer.updated", "200", "08:12:01"],
-                ["charge.refunded", "200", "07:55:40"],
-              ].map(([e, s, t]) => (
-                <li key={t} className="flex items-center justify-between px-5 py-2.5">
-                  <code className="font-mono text-xs text-ink">{e}</code>
-                  <div className="flex items-center gap-2 text-xs text-ink-3">
-                    <span className="rounded bg-success/15 px-1.5 py-0.5 font-mono text-[10px] text-success">{s}</span>
-                    {t}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            {events.length === 0 ? (
+              <p className="text-sm text-ink-3 py-6 text-center">No recent webhook events.</p>
+            ) : (
+              <ul className="divide-y divide-line text-sm">
+                {events.map((ev) => (
+                  <li key={ev.time} className="flex items-center justify-between px-5 py-2.5">
+                    <code className="font-mono text-xs text-ink">{ev.event}</code>
+                    <div className="flex items-center gap-2 text-xs text-ink-3">
+                      <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${
+                        String(ev.status).startsWith("2") 
+                          ? "bg-success/15 text-success" 
+                          : "bg-danger/15 text-danger"
+                      }`}>{ev.status}</span>
+                      {ev.time}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </SectionCard>
         </div>
       </div>
