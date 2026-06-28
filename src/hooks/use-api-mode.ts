@@ -5,10 +5,21 @@ const EVENT_NAME = "zia-api-mode-change";
 export function useApiMode() {
   const [isMockMode, setIsMockMode] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
+    
+    const envMode = import.meta.env.VITE_API_MODE || "mock";
+    const lastEnvMode = localStorage.getItem("zia_api_mode_env");
+    
+    // If VITE_API_MODE changed in .env, reset local storage to match the new env configuration
+    if (lastEnvMode !== envMode) {
+      localStorage.setItem("zia_api_mode_env", envMode);
+      localStorage.setItem("zia_api_mode", envMode);
+      return envMode === "mock";
+    }
+
     const stored = localStorage.getItem("zia_api_mode");
     if (stored === "live") return false;
     if (stored === "mock") return true;
-    return import.meta.env.VITE_API_MODE !== "live";
+    return envMode === "mock";
   });
 
   const setApiMode = (mode: "mock" | "live") => {
