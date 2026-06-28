@@ -5,7 +5,10 @@ const EVENT_NAME = "zia-api-mode-change";
 export function useApiMode() {
   const [isMockMode, setIsMockMode] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
-    return localStorage.getItem("zia_api_mode") !== "live";
+    const stored = localStorage.getItem("zia_api_mode");
+    if (stored === "live") return false;
+    if (stored === "mock") return true;
+    return import.meta.env.VITE_API_MODE !== "live";
   });
 
   const setApiMode = (mode: "mock" | "live") => {
@@ -16,7 +19,14 @@ export function useApiMode() {
 
   useEffect(() => {
     const handleEvent = () => {
-      setIsMockMode(localStorage.getItem("zia_api_mode") !== "live");
+      const stored = localStorage.getItem("zia_api_mode");
+      if (stored === "live") {
+        setIsMockMode(false);
+      } else if (stored === "mock") {
+        setIsMockMode(true);
+      } else {
+        setIsMockMode(import.meta.env.VITE_API_MODE !== "live");
+      }
     };
     window.addEventListener(EVENT_NAME, handleEvent);
     return () => {

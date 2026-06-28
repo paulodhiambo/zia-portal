@@ -5,14 +5,19 @@
 //     error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { loadEnv } from "vite";
+
+const env = loadEnv(process.env.NODE_ENV || "development", process.cwd(), "");
+const PORT = parseInt(env.PORT || "3000", 10);
+const BACKEND_URL = env.BACKEND_URL || "http://localhost:8080";
 
 export default defineConfig({
   vite: {
     server: {
-      port: 3000,
+      port: PORT,
       proxy: {
         "/api": {
-          target: "http://localhost:8080",
+          target: BACKEND_URL,
           changeOrigin: true,
           secure: false,
         },

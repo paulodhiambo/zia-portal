@@ -28,7 +28,8 @@ export async function apiFetch<T>(
   bodyData?: any
 ): Promise<T> {
   const messageID = generateMessageID();
-  const url = `/api/v1${path}`;
+  const apiBase = import.meta.env.VITE_API_URL || "";
+  const url = `${apiBase}/api/v1${path}`;
 
   const options: RequestInit = {
     method,
