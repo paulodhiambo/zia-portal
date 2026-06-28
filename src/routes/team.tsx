@@ -2,6 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
+import { useApiMode } from "@/hooks/use-api-mode";
+import { apiFetch } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { AppShell, Pill, SectionCard } from "@/components/app-shell";
 import {
@@ -48,47 +51,183 @@ const INITIAL_PENDING: PendingInvite[] = [
 ];
 
 function Team() {
-  const [members] = React.useState<Member[]>(INITIAL_MEMBERS);
+  const { isMockMode } = useApiMode();
+  const [members, setMembers] = React.useState<Member[]>(INITIAL_MEMBERS);
   const [pending, setPending] = React.useState<PendingInvite[]>(INITIAL_PENDING);
+  const [isLoading, setIsLoading] = React.useState(false);
   
   const [open, setOpen] = React.useState(false);
   const [email, setEmail] = React.useState("");
   const [role, setRole] = React.useState("Finance");
 
-  const handleInvite = (e: React.FormEvent) => {
+  const fetchTeamData = React.useCallback(() => {
+    if (isMockMode) {
+      setMembers(INITIAL_MEMBERS);
+      setPending(INITIAL_PENDING);
+      return Promise.resolve();
+    }
+    return Promise.all([
+      apiFetch<{ members: any[] }>("/team/members")
+        .then((data) => {
+          const list = data?.members || [];
+          setMembers(list.map((m) => ({
+            name: m.name,
+            email: m.email,
+            role: m.role,
+            last: m.last,
+            initials: m.initials || m.name.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase() || "ME",
+          })));
+        })
+        .catch((err) => {
+          console.warn("Failed to fetch team members:", err);
+          setMembers(INITIAL_MEMBERS);
+        }),
+      apiFetch<{ invitations: any[] }>("/team/invitations")
+        .then((data) => {
+          const list = data?.invitations || [];
+          setPending(list.map((inv) => ({
+            email: inv.email,
+            role: inv.role,
+            invited: inv.invited,
+          })));
+        })
+        .catch((err) => {
+          console.warn("Failed to fetch team invitations:", err);
+          setPending(INITIAL_PENDING);
+        })
+    ]).then(() => {});
+  }, [isMockMode]);
+
+  React.useEffect(() => {
+    if (isMockMode) {
+      fetchTeamData();
+      return;
+    }
+    setIsLoading(true);
+    fetchTeamData().finally(() => {
+      setIsLoading(false);
+    });
+  }, [isMockMode, fetchTeamData]);
+
+  const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
 
-    // Check if already in pending or member list
-    if (pending.some((p) => p.email.toLowerCase() === email.toLowerCase()) || 
-        members.some((m) => m.email.toLowerCase() === email.toLowerCase())) {
-      toast.error(`${email} is already invited or a member of the workspace.`);
+    if (isMockMode) {
+      if (pending.some((p) => p.email.toLowerCase() === email.toLowerCase()) || 
+          members.some((m) => m.email.toLowerCase() === email.toLowerCase())) {
+        toast.error(`${email} is already invited or a member of the workspace.`);
+        return;
+      }
+
+      const newInvite: PendingInvite = {
+        email,
+        role,
+        invited: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date()),
+      };
+
+      setPending((prev) => [newInvite, ...prev]);
+      setOpen(false);
+      toast.success(`Invitation sent to ${email}`);
+      setEmail("");
+      setRole("Finance");
       return;
     }
 
-    const newInvite: PendingInvite = {
-      email,
-      role,
-      invited: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date()),
-    };
-
-    setPending((prev) => [newInvite, ...prev]);
-    setOpen(false);
-    toast.success(`Invitation sent to ${email}`);
-
-    // Reset Form
-    setEmail("");
-    setRole("Finance");
+    setIsLoading(true);
+    try {
+      await apiFetch<any>("/team/invite", "POST", { email, role });
+      toast.success(`Invitation sent to ${email}`);
+      fetchTeamData();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to send invitation");
+    } finally {
+      setIsLoading(false);
+      setOpen(false);
+      setEmail("");
+      setRole("Finance");
+    }
   };
 
-  const handleResend = (emailAddress: string) => {
-    toast.success(`Invitation resent to ${emailAddress}`);
+  const handleResend = async (emailAddress: string) => {
+    if (isMockMode) {
+      toast.success(`Invitation resent to ${emailAddress} (Mock Mode)`);
+      return;
+    }
+
+    try {
+      await apiFetch<any>(`/team/invitations/${emailAddress}/resend`, "POST", {});
+      toast.success(`Invitation resent to ${emailAddress}`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to resend invitation");
+    }
   };
 
-  const handleRevoke = (emailAddress: string) => {
-    setPending((prev) => prev.filter((p) => p.email !== emailAddress));
-    toast.success(`Invitation revoked for ${emailAddress}`);
+  const handleRevoke = async (emailAddress: string) => {
+    if (isMockMode) {
+      setPending((prev) => prev.filter((p) => p.email !== emailAddress));
+      toast.success(`Invitation revoked for ${emailAddress} (Mock Mode)`);
+      return;
+    }
+
+    try {
+      await apiFetch<any>(`/team/invitations/${emailAddress}/revoke`, "DELETE", {});
+      toast.success(`Invitation revoked for ${emailAddress}`);
+      fetchTeamData();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to revoke invitation");
+    }
   };
+
+  if (isLoading && !isMockMode) {
+    return (
+      <AppShell eyebrow="Loading..." title="Team & access">
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Active members shimmer */}
+          <SectionCard title="Active members">
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center justify-between border-b border-line pb-3">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-9 w-9 rounded-full bg-ink/10" />
+                    <div>
+                      <Skeleton className="h-4 w-28 bg-ink/10" />
+                      <Skeleton className="mt-1 h-3.5 w-40 bg-ink/10" />
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <Skeleton className="h-4 w-16 bg-ink/10" />
+                    <Skeleton className="mt-1 h-3.5 w-12 bg-ink/10" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+
+          {/* Pending invitations shimmer */}
+          <SectionCard title="Pending invitations">
+            <div className="space-y-4">
+              {[1, 2].map((i) => (
+                <div key={i} className="flex items-center justify-between border-b border-line pb-3">
+                  <div>
+                    <Skeleton className="h-4 w-40 bg-ink/10" />
+                    <Skeleton className="mt-1 h-3.5 w-16 bg-ink/10" />
+                  </div>
+                  <div className="flex gap-2">
+                    <Skeleton className="h-8 w-16 bg-ink/10" />
+                    <Skeleton className="h-8 w-16 bg-ink/10" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell
