@@ -4,6 +4,8 @@ import * as React from "react";
 import { toast } from "sonner";
 
 import { AppShell, Pill, SectionCard } from "@/components/app-shell";
+import { useApiMode } from "@/hooks/use-api-mode";
+import { apiFetch } from "@/lib/api";
 import {
   Dialog,
   DialogClose,
@@ -85,6 +87,7 @@ const INITIAL_ITEMS: NotificationItem[] = [
 ];
 
 function Notifications() {
+  const { isMockMode } = useApiMode();
   const [notifications, setNotifications] = React.useState<NotificationItem[]>(INITIAL_ITEMS);
   const [selectedCategory, setSelectedCategory] = React.useState<"All" | "Disputes" | "Payouts" | "Security" | "Product">("All");
 
@@ -95,15 +98,116 @@ function Notifications() {
   const [payoutAlert, setPayoutAlert] = React.useState(true);
   const [securityAlert, setSecurityAlert] = React.useState(true);
 
-  const handleMarkAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-    toast.success("All notifications marked as read");
+  const fetchNotifications = React.useCallback(() => {
+    if (isMockMode) {
+      setNotifications(INITIAL_ITEMS);
+      return;
+    }
+    apiFetch<any>("/notifications")
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data?.notifications || []);
+        const mapped = list.map((item: any) => {
+          let icon = AlertTriangle;
+          let tone: "success" | "warning" | "danger" | "info" | "neutral" = "info";
+          const cat = item.category || "Product";
+          
+          if (cat === "Disputes") {
+            icon = AlertTriangle;
+            tone = "danger";
+          } else if (cat === "Payouts") {
+            icon = Wallet;
+            tone = "info";
+          } else if (cat === "Security") {
+            icon = KeyRound;
+            tone = "warning";
+          } else if (cat === "Product") {
+            icon = CheckCircle2;
+            tone = "success";
+          }
+          
+          return {
+            id: item.id || String(Math.random()),
+            icon,
+            tone: item.tone || tone,
+            title: item.title || "Notification",
+            body: item.body || "",
+            time: item.time || item.createdAt || "Just now",
+            unread: item.unread !== undefined ? !!item.unread : true,
+            category: cat,
+          };
+        });
+        setNotifications(mapped);
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch live notifications:", err);
+        setNotifications(INITIAL_ITEMS);
+      });
+  }, [isMockMode]);
+
+  React.useEffect(() => {
+    fetchNotifications();
+
+    if (isMockMode) {
+      setEmailDigest(true);
+      setDisputeAlert(true);
+      setPayoutAlert(true);
+      setSecurityAlert(true);
+      return;
+    }
+
+    apiFetch<any>("/profile")
+      .then((data) => {
+        const prefs = data?.preferences;
+        if (prefs) {
+          setEmailDigest(!!prefs.dailyDigest);
+          setDisputeAlert(!!prefs.alertOnDisputes);
+          setPayoutAlert(!!prefs.weeklyTreasuryReport);
+          setSecurityAlert(!!prefs.betaFeatures);
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch fresh profile preferences in Notifications page:", err);
+      });
+  }, [isMockMode, fetchNotifications]);
+
+  const handleMarkAllRead = async () => {
+    if (isMockMode) {
+      setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+      toast.success("All notifications marked as read (Mock Mode)");
+      return;
+    }
+
+    try {
+      await apiFetch<any>("/notifications/mark-all-read", "POST", {});
+      toast.success("All notifications marked as read");
+      fetchNotifications();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to mark all read");
+    }
   };
 
-  const handleSavePreferences = (e: React.FormEvent) => {
+  const handleSavePreferences = async (e: React.FormEvent) => {
     e.preventDefault();
-    setPrefDialogOpen(false);
-    toast.success("Notification preferences updated successfully");
+    if (isMockMode) {
+      setPrefDialogOpen(false);
+      toast.success("Notification preferences updated successfully (Mock Mode)");
+      return;
+    }
+
+    try {
+      await apiFetch<any>("/notifications/preferences", "POST", {
+        dailyDigest: emailDigest,
+        alertOnDisputes: disputeAlert,
+        weeklyTreasuryReport: payoutAlert,
+        betaFeatures: securityAlert
+      });
+      toast.success("Notification preferences updated successfully");
+      setPrefDialogOpen(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to update preferences");
+    }
   };
 
   const unreadCount = notifications.filter((n) => n.unread).length;
