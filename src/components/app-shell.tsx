@@ -13,8 +13,21 @@ import {
   UserRound,
   Users,
   Wallet,
+  Sun,
+  Moon,
+  ArrowUpRight,
 } from "lucide-react";
 import { useState, useEffect, type ReactNode } from "react";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useApiMode } from "@/hooks/use-api-mode";
 import { apiFetch } from "@/lib/api";
 
@@ -47,6 +60,32 @@ export function AppShell({
   const { isMockMode, setApiMode } = useApiMode();
   
   const [userName, setUserName] = useState("Elena Mendes");
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  const toggleTheme = () => {
+    const root = document.documentElement;
+    if (root.classList.contains("dark")) {
+      root.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+      setTheme("light");
+    } else {
+      root.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+      setTheme("dark");
+    }
+  };
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme");
+    const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if (savedTheme === "dark" || (!savedTheme && systemPrefersDark)) {
+      document.documentElement.classList.add("dark");
+      setTheme("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      setTheme("light");
+    }
+  }, []);
 
   const getInitials = (nameStr: string) => {
     const parts = nameStr.trim().split(/\s+/);
@@ -196,15 +235,71 @@ export function AppShell({
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <button className="grid h-9 w-9 place-items-center rounded-md text-ink-2 hover:bg-surface-2 hover:text-ink">
+              <Link
+                to="/notifications"
+                className="grid h-9 w-9 place-items-center rounded-md text-ink-2 hover:bg-surface-2 hover:text-ink cursor-pointer"
+                title="Notifications"
+              >
                 <Bell className="h-4 w-4" />
+              </Link>
+
+              <Dialog>
+                <DialogTrigger asChild>
+                  <button className="grid h-9 w-9 place-items-center rounded-md text-ink-2 hover:bg-surface-2 hover:text-ink cursor-pointer" title="Help & Support">
+                    <CircleHelp className="h-4 w-4" />
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md bg-surface text-ink border border-line">
+                  <DialogHeader>
+                    <DialogTitle className="font-display text-2xl tracking-tight text-ink">
+                      Zia Support & Documentation
+                    </DialogTitle>
+                    <DialogDescription className="text-xs text-ink-3">
+                      Need help integrating or operating your treasury ledger?
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-2 text-sm text-ink-2">
+                    <p>
+                      Welcome to Zia's modern financial platform. Here are some quick resources to get you started:
+                    </p>
+                    <div className="space-y-2.5">
+                      <Link to="/developer" className="flex items-center justify-between rounded-lg border border-line p-3 hover:bg-surface-2 transition-colors">
+                        <div>
+                          <div className="font-medium text-ink">Integration Guide</div>
+                          <div className="text-xs text-ink-3">API keys, webhook configurations and logs</div>
+                        </div>
+                        <ArrowUpRight className="h-4 w-4 text-ink-3" />
+                      </Link>
+                      <Link to="/profile" className="flex items-center justify-between rounded-lg border border-line p-3 hover:bg-surface-2 transition-colors">
+                        <div>
+                          <div className="font-medium text-ink">Workspace Settings</div>
+                          <div className="text-xs text-ink-3">Change country, default currency, and active role</div>
+                        </div>
+                        <ArrowUpRight className="h-4 w-4 text-ink-3" />
+                      </Link>
+                    </div>
+                  </div>
+                  <DialogFooter className="sm:justify-start">
+                    <DialogClose asChild>
+                      <button className="rounded-md border border-line bg-surface px-4 py-2.5 text-sm font-medium text-ink hover:bg-surface-2">
+                        Close
+                      </button>
+                    </DialogClose>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <button
+                onClick={toggleTheme}
+                className="grid h-9 w-9 place-items-center rounded-md text-ink-2 hover:bg-surface-2 hover:text-ink cursor-pointer"
+                title={theme === "dark" ? "Toggle light mode" : "Toggle dark mode"}
+              >
+                {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </button>
-              <button className="grid h-9 w-9 place-items-center rounded-md text-ink-2 hover:bg-surface-2 hover:text-ink">
-                <CircleHelp className="h-4 w-4" />
-              </button>
+
               <Link
                 to="/login"
-                className="ml-1 grid h-9 w-9 place-items-center rounded-md text-ink-2 hover:bg-surface-2 hover:text-ink"
+                className="ml-1 grid h-9 w-9 place-items-center rounded-md text-ink-2 hover:bg-surface-2 hover:text-ink cursor-pointer"
                 title="Sign out"
               >
                 <LogOut className="h-4 w-4" />
