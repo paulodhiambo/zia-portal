@@ -71,8 +71,9 @@ export function AppShell({
     if (!isMockMode) {
       apiFetch<any>("/profile")
         .then((data) => {
-          if (data.name) {
-            setUserName(data.name);
+          const user = data?.user;
+          if (user && user.name) {
+            setUserName(user.name);
             const stored = localStorage.getItem("zia_portal_user");
             let userObj = {};
             if (stored) {
@@ -80,7 +81,10 @@ export function AppShell({
             }
             localStorage.setItem("zia_portal_user", JSON.stringify({
               ...userObj,
-              name: data.name,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+              title: user.title,
             }));
           }
         })

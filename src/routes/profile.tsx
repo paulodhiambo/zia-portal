@@ -20,6 +20,19 @@ function Profile() {
     phone: "+1 415 555 0114",
     role: "Owner"
   });
+
+  const [preferences, setPreferences] = React.useState({
+    dailyDigest: true,
+    alertOnDisputes: true,
+    weeklyTreasuryReport: false,
+    betaFeatures: false
+  });
+
+  const [security, setSecurity] = React.useState({
+    activeSessionsCount: 3,
+    hardwareKeysCount: 0,
+    twoFactorEnabled: true
+  });
   
   const [isSaving, setIsSaving] = React.useState(false);
 
@@ -50,13 +63,31 @@ function Profile() {
     if (!isMockMode) {
       apiFetch<any>("/profile")
         .then((data) => {
-          setProfile({
-            name: data.name || "Elena Mendes",
-            title: data.title || "Head of Finance",
-            email: data.email || "elena@acme.com",
-            phone: data.phone || "+1 415 555 0114",
-            role: data.role || "Owner"
-          });
+          const user = data?.user;
+          if (user) {
+            setProfile({
+              name: user.name || "Elena Mendes",
+              title: user.title || "Head of Finance",
+              email: user.email || "elena@acme.com",
+              phone: user.phone || "+1 415 555 0114",
+              role: user.role || "Owner"
+            });
+          }
+          if (data?.preferences) {
+            setPreferences({
+              dailyDigest: !!data.preferences.dailyDigest,
+              alertOnDisputes: !!data.preferences.alertOnDisputes,
+              weeklyTreasuryReport: !!data.preferences.weeklyTreasuryReport,
+              betaFeatures: !!data.preferences.betaFeatures
+            });
+          }
+          if (data?.security) {
+            setSecurity({
+              activeSessionsCount: data.security.activeSessionsCount ?? 3,
+              hardwareKeysCount: data.security.hardwareKeysCount ?? 0,
+              twoFactorEnabled: !!data.security.twoFactorEnabled
+            });
+          }
         })
         .catch((err) => {
           console.warn("Failed to fetch profile in Profile page:", err);
@@ -77,6 +108,7 @@ function Profile() {
         name: profile.name,
         email: profile.email,
         role: profile.role,
+        title: profile.title,
       }));
       toast.success("Profile updated successfully (Mock Mode)!");
       return;
@@ -97,6 +129,8 @@ function Profile() {
           localStorage.setItem("zia_portal_user", JSON.stringify({
             ...user,
             name: profile.name,
+            phone: profile.phone,
+            title: profile.title,
           }));
         } catch {}
       }
@@ -107,6 +141,27 @@ function Profile() {
       toast.error(err.message || "Failed to update profile");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleTogglePreference = async (key: keyof typeof preferences) => {
+    const newVal = !preferences[key];
+    const updatedPrefs = { ...preferences, [key]: newVal };
+    setPreferences(updatedPrefs);
+
+    if (isMockMode) {
+      toast.success("Preferences updated (Mock Mode)!");
+      return;
+    }
+
+    try {
+      await apiFetch<any>("/notifications/preferences", "POST", updatedPrefs);
+      toast.success("Preferences updated!");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to update preferences");
+      // Revert state on error
+      setPreferences(preferences);
     }
   };
 
@@ -174,17 +229,17 @@ function Profile() {
               />
               <Row
                 label="Two-factor auth"
-                value="Authenticator app"
-                action={<Pill tone="success">Enabled</Pill>}
+                value={security.twoFactorEnabled ? "Authenticator app" : "Disabled"}
+                action={security.twoFactorEnabled ? <Pill tone="success">Enabled</Pill> : <Pill tone="warning">Disabled</Pill>}
               />
               <Row
                 label="Hardware key"
-                value="Not configured"
+                value={security.hardwareKeysCount > 0 ? `${security.hardwareKeysCount} configured` : "Not configured"}
                 action={<button className="text-xs font-medium text-cobalt hover:underline">Add YubiKey</button>}
               />
               <Row
                 label="Active sessions"
-                value="3 devices, 2 cities"
+                value={`${security.activeSessionsCount} active session${security.activeSessionsCount !== 1 ? "s" : ""}`}
                 action={<button className="text-xs font-medium text-destructive hover:underline">Sign out all</button>}
               />
             </div>
@@ -194,10 +249,26 @@ function Profile() {
         <div className="space-y-4">
           <SectionCard title="Preferences">
             <div className="space-y-3 text-sm">
-              <Toggle label="Daily digest at 8:00 ET" on />
-              <Toggle label="Alert me on disputes" on />
-              <Toggle label="Weekly treasury report" />
-              <Toggle label="Beta features" />
+              <Toggle
+                label="Daily digest at 8:00 ET"
+                on={preferences.dailyDigest}
+                onChange={() => handleTogglePreference("dailyDigest")}
+              />
+              <Toggle
+                label="Alert me on disputes"
+                on={preferences.alertOnDisputes}
+                onChange={() => handleTogglePreference("alertOnDisputes")}
+              />
+              <Toggle
+                label="Weekly treasury report"
+                on={preferences.weeklyTreasuryReport}
+                onChange={() => handleTogglePreference("weeklyTreasuryReport")}
+              />
+              <Toggle
+                label="Beta features"
+                on={preferences.betaFeatures}
+                onChange={() => handleTogglePreference("betaFeatures")}
+              />
             </div>
           </SectionCard>
 
@@ -248,13 +319,17 @@ function Row({ label, value, action }: { label: string; value: string; action: R
   );
 }
 
-function Toggle({ label, on }: { label: string; on?: boolean }) {
+function Toggle({ label, on, onChange }: { label: string; on?: boolean; onChange?: () => void }) {
   return (
-    <label className="flex items-center justify-between">
+    <label className="flex items-center justify-between cursor-pointer select-none">
       <span className="text-ink-2">{label}</span>
-      <span className={`relative inline-flex h-5 w-9 cursor-pointer items-center rounded-full transition-colors ${on ? "bg-ink" : "bg-line-strong"}`}>
+      <button
+        type="button"
+        onClick={onChange}
+        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-cobalt/30 ${on ? "bg-ink" : "bg-line-strong"}`}
+      >
         <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${on ? "translate-x-5" : "translate-x-1"}`} />
-      </span>
+      </button>
     </label>
   );
 }

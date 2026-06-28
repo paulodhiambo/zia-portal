@@ -67,7 +67,7 @@ function Home() {
     // Fetch profile and overview metrics concurrently in live mode
     apiFetch<any>("/profile")
       .then((profileData) => {
-        setUserName(profileData.name || "Acme Corp");
+        setUserName(profileData?.user?.name || "Acme Corp");
       })
       .catch((err) => {
         console.warn("Failed to fetch user profile name:", err);
