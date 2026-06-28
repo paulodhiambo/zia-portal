@@ -175,6 +175,18 @@ function Customers() {
   const { isMockMode } = useApiMode();
   const [customers, setCustomers] = React.useState<CustomerItem[]>(INITIAL_CUSTOMERS);
   const [isLoading, setIsLoading] = React.useState(false);
+
+  const workspaceStr = typeof window !== "undefined" ? localStorage.getItem("zia_portal_workspace") : null;
+  let currencySymbol = "KES ";
+  if (workspaceStr) {
+    try {
+      const workspace = JSON.parse(workspaceStr);
+      if (workspace.defaultCurrency === "KES") currencySymbol = "KES ";
+      else if (workspace.defaultCurrency === "USD") currencySymbol = "$";
+      else if (workspace.defaultCurrency === "EUR") currencySymbol = "€";
+      else currencySymbol = workspace.defaultCurrency + " ";
+    } catch {}
+  }
   const [selectedCustomerId, setSelectedCustomerId] = React.useState<string>(INITIAL_CUSTOMERS[0].id);
   const [search, setSearch] = React.useState("");
 
@@ -260,9 +272,9 @@ function Customers() {
       email,
       phone,
       location: location || "Remote",
-      volume: `$${numVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      volume: `${currencySymbol}${numVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       numericVolume: numVolume,
-      ltv: `$${numVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      ltv: `${currencySymbol}${numVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       numericLtv: numVolume,
       joined: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date()),
       status: "Active",
@@ -270,7 +282,7 @@ function Customers() {
       initials,
       paymentMethod: "Card · Visa •••• 9999",
       recentCharges: numVolume > 0 ? [
-        { id: `ch_${Math.random().toString(36).substring(2, 8).toUpperCase()}`, date: "Just now", desc: "Initial Deposit", amount: `+$${numVolume.toLocaleString()}`, status: "Succeeded", tone: "success" }
+        { id: `ch_${Math.random().toString(36).substring(2, 8).toUpperCase()}`, date: "Just now", desc: "Initial Deposit", amount: `+${currencySymbol}${numVolume.toLocaleString()}`, status: "Succeeded", tone: "success" }
       ] : [],
     };
 
@@ -291,9 +303,9 @@ function Customers() {
             email: createdCustomer.email || email,
             phone: createdCustomer.phone || phone,
             location: createdCustomer.location || location || "Remote",
-            volume: createdCustomer.volume || `$${numVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            volume: createdCustomer.volume || `${currencySymbol}${numVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             numericVolume: numVolume,
-            ltv: createdCustomer.ltv || `$${numVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            ltv: createdCustomer.ltv || `${currencySymbol}${numVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             numericLtv: numVolume,
             joined: createdCustomer.joined || new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date()),
             status: "Active",
@@ -301,7 +313,7 @@ function Customers() {
             initials: createdCustomer.initials || initials,
             paymentMethod: createdCustomer.paymentMethod || "Card · Visa •••• 9999",
             recentCharges: createdCustomer.recentCharges || (numVolume > 0 ? [
-              { id: `ch_${Math.random().toString(36).substring(2, 8).toUpperCase()}`, date: "Just now", desc: "Initial Deposit", amount: `+$${numVolume.toLocaleString()}`, status: "Succeeded", tone: "success" }
+              { id: `ch_${Math.random().toString(36).substring(2, 8).toUpperCase()}`, date: "Just now", desc: "Initial Deposit", amount: `+${currencySymbol}${numVolume.toLocaleString()}`, status: "Succeeded", tone: "success" }
             ] : []),
           };
           setCustomers((prev) => [mapped, ...prev]);
@@ -345,6 +357,9 @@ function Customers() {
   // Calculate totals
   const totalVolume = customers.reduce((sum, c) => sum + c.numericVolume, 0);
   const activeCount = customers.filter((c) => c.status === "Active").length;
+  const averageLtv = customers.length > 0 
+    ? customers.reduce((sum, c) => sum + c.numericLtv, 0) / customers.length
+    : 0;
 
   if (isLoading && !isMockMode) {
     return (
@@ -501,12 +516,12 @@ function Customers() {
         <StatCard label="Active subscriptions" value={activeCount.toString()} />
         <StatCard
           label="Total processed volume"
-          value={`$${totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          value={`${currencySymbol}${totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           delta="▲ 14.2%"
           hint="vs last month"
           tone="up"
         />
-        <StatCard label="Average Customer LTV" value="$21,083.33" hint="LTV across core tiers" />
+        <StatCard label="Average Customer LTV" value={`${currencySymbol}${averageLtv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} hint="LTV across core tiers" />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-12">

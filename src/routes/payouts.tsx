@@ -110,6 +110,18 @@ function Payouts() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [search, setSearch] = React.useState("");
 
+  const workspaceStr = typeof window !== "undefined" ? localStorage.getItem("zia_portal_workspace") : null;
+  let currencySymbol = "KES ";
+  if (workspaceStr) {
+    try {
+      const workspace = JSON.parse(workspaceStr);
+      if (workspace.defaultCurrency === "KES") currencySymbol = "KES ";
+      else if (workspace.defaultCurrency === "USD") currencySymbol = "$";
+      else if (workspace.defaultCurrency === "EUR") currencySymbol = "€";
+      else currencySymbol = workspace.defaultCurrency + " ";
+    } catch {}
+  }
+
   React.useEffect(() => {
     if (isMockMode) {
       setPayouts(INITIAL_PAYOUTS);
@@ -169,7 +181,7 @@ function Payouts() {
       source,
       destination: `${bank} •••• ${account.slice(-4) || "0000"}`,
       bank,
-      amount: `$${numAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      amount: `${currencySymbol}${numAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       status: "Pending",
       tone: "warning",
       numericAmount: numAmount,
@@ -191,7 +203,7 @@ function Payouts() {
             source: createdPayout.source || source,
             destination: createdPayout.destination || `${bank} •••• ${account.slice(-4) || "0000"}`,
             bank: createdPayout.bank || bank,
-            amount: createdPayout.amount || `$${numAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            amount: createdPayout.amount || `${currencySymbol}${numAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             status: "Pending",
             tone: "warning",
             numericAmount: numAmount,
@@ -383,12 +395,12 @@ function Payouts() {
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard
           label="Next payout"
-          value={`$${pendingPayouts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          value={`${currencySymbol}${pendingPayouts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           hint="Scheduled Oct 25"
         />
         <StatCard
           label="Total paid out (Succeeded)"
-          value={`$${totalPaidOut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          value={`${currencySymbol}${totalPaidOut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           delta="▲ 9.4%"
           hint="vs prior 30d"
           tone="up"

@@ -34,6 +34,22 @@ const INITIAL_TXNS = [
 function Home() {
   const { isMockMode } = useApiMode();
 
+  const workspaceStr = typeof window !== "undefined" ? localStorage.getItem("zia_portal_workspace") : null;
+  let currencySymbol = "KES ";
+  let defaultCurrency = "KES";
+  if (workspaceStr) {
+    try {
+      const workspace = JSON.parse(workspaceStr);
+      if (workspace.defaultCurrency) {
+        defaultCurrency = workspace.defaultCurrency;
+        if (workspace.defaultCurrency === "KES") currencySymbol = "KES ";
+        else if (workspace.defaultCurrency === "USD") currencySymbol = "$";
+        else if (workspace.defaultCurrency === "EUR") currencySymbol = "€";
+        else currencySymbol = workspace.defaultCurrency + " ";
+      }
+    } catch {}
+  }
+
   // Metrics states
   const [userName, setUserName] = React.useState("Acme Corp");
   const [treasuryBalance, setTreasuryBalance] = React.useState(2481302.18);
@@ -204,7 +220,7 @@ function Home() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Today's volume"
-          value={`$${todayVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          value={`${currencySymbol}${todayVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           delta="▲ 12.5%"
           hint="vs yesterday"
           tone="up"
@@ -218,7 +234,7 @@ function Home() {
         />
         <StatCard
           label="Pending payouts"
-          value={`$${pendingPayouts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          value={`${currencySymbol}${pendingPayouts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           hint="Scheduled Oct 25"
         />
         <StatCard label="Refund rate" value="0.8%" delta="▼ 0.1%" hint="vs last week" tone="up" />
@@ -254,11 +270,11 @@ function Home() {
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="d" tickLine={false} axisLine={false} className="text-[11px]" tick={{ fill: "var(--ink-3)" }} />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--ink-3)", fontSize: 11 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                  <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--ink-3)", fontSize: 11 }} tickFormatter={(v) => `${currencySymbol}${(v / 1000).toFixed(0)}k`} />
                   <Tooltip
                     cursor={{ stroke: "var(--line-strong)", strokeDasharray: 3 }}
                     contentStyle={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12 }}
-                    formatter={(v: number) => `$${v.toLocaleString()}`}
+                    formatter={(v: number) => `${currencySymbol}${v.toLocaleString()}`}
                   />
                   <Area type="monotone" dataKey="p" stroke="var(--line-strong)" strokeDasharray="3 3" fill="none" />
                   <Area type="monotone" dataKey="v" stroke="oklch(0.52 0.21 258)" strokeWidth={2} fill="url(#g1)" />
@@ -274,14 +290,14 @@ function Home() {
           action={<Pill tone="info">Live</Pill>}
         >
           <div className="font-display text-[40px] leading-none tracking-tight text-ink tabular">
-            {`$${treasuryBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            {`${currencySymbol}${treasuryBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           </div>
-          <div className="mt-1 text-xs text-success">▲ $32,109 today</div>
+          <div className="mt-1 text-xs text-success">▲ {currencySymbol}32,109 today</div>
           <ul className="mt-5 divide-y divide-line text-sm">
             {[
-              ["Operating · USD", "$1,820,440.02"],
-              ["Reserves · USD", "$540,200.00"],
-              ["FX float · EUR", "€112,400.50"],
+              [`Operating · ${defaultCurrency}`, `${currencySymbol}${(treasuryBalance * 0.73).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+              [`Reserves · ${defaultCurrency}`, `${currencySymbol}${(treasuryBalance * 0.22).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+              [`FX float · EUR`, `€${(treasuryBalance * 0.05 / 150).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
             ].map(([k, v]) => (
               <li key={k} className="flex items-center justify-between py-2.5">
                 <span className="text-ink-2">{k}</span>
