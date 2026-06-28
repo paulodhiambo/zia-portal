@@ -14,8 +14,9 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useApiMode } from "@/hooks/use-api-mode";
+import { apiFetch } from "@/lib/api";
 
 const NAV = [
   { label: "Overview", to: "/home", icon: Gauge },
@@ -44,6 +45,50 @@ export function AppShell({
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { isMockMode, setApiMode } = useApiMode();
+  
+  const [userName, setUserName] = useState("Elena Mendes");
+
+  const getInitials = (nameStr: string) => {
+    const parts = nameStr.trim().split(/\s+/);
+    if (parts.length === 0) return "?";
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  useEffect(() => {
+    // 1. Initial read from local storage
+    const storedUser = localStorage.getItem("zia_portal_user");
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        if (user.name) {
+          setUserName(user.name);
+        }
+      } catch {}
+    }
+
+    // 2. Fetch fresh name from API in live mode
+    if (!isMockMode) {
+      apiFetch<any>("/profile")
+        .then((data) => {
+          if (data.name) {
+            setUserName(data.name);
+            const stored = localStorage.getItem("zia_portal_user");
+            let userObj = {};
+            if (stored) {
+              try { userObj = JSON.parse(stored); } catch {}
+            }
+            localStorage.setItem("zia_portal_user", JSON.stringify({
+              ...userObj,
+              name: data.name,
+            }));
+          }
+        })
+        .catch((err) => {
+          console.warn("Failed to fetch fresh profile in AppShell:", err);
+        });
+    }
+  }, [isMockMode]);
 
   return (
     <div className="min-h-screen bg-surface-2 text-ink">
@@ -165,9 +210,9 @@ export function AppShell({
                 className="ml-2 flex items-center gap-2 rounded-full border border-line bg-surface py-1 pl-1 pr-3 text-sm hover:border-line-strong"
               >
                 <div className="grid h-7 w-7 place-items-center rounded-full bg-ink font-mono text-[11px] text-primary-foreground">
-                  EM
+                  {getInitials(userName)}
                 </div>
-                <span className="hidden text-sm font-medium text-ink md:block">Elena Mendes</span>
+                <span className="hidden text-sm font-medium text-ink md:block">{userName}</span>
               </Link>
             </div>
           </header>
