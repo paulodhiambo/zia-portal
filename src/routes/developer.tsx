@@ -69,9 +69,10 @@ function Developer() {
       setKeys(INITIAL_KEYS);
       return;
     }
-    apiFetch<any[]>("/developer/keys")
+    apiFetch<any>("/developer/keys")
       .then((data) => {
-        const mapped = data.map((k: any) => ({
+        const list = Array.isArray(data) ? data : (data?.keys || []);
+        const mapped = list.map((k: any) => ({
           name: k.name || `${k.type || "Secret"} Key`,
           key: k.key,
           env: k.env || "live",
@@ -90,9 +91,10 @@ function Developer() {
       setHooks(INITIAL_HOOKS);
       return;
     }
-    apiFetch<any[]>("/developer/webhooks")
+    apiFetch<any>("/developer/webhooks")
       .then((data) => {
-        const mapped = data.map((h: any) => ({
+        const list = Array.isArray(data) ? data : (data?.webhooks || []);
+        const mapped = list.map((h: any) => ({
           url: h.url,
           events: h.events ?? 0,
           status: h.status === "active" ? "Healthy" : (h.status === "inactive" ? "Paused" : (h.status || "Healthy")),
