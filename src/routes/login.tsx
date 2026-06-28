@@ -21,6 +21,10 @@ export function Auth({ defaultMode = "signin" }: { defaultMode?: "signin" | "sig
   const [name, setName] = React.useState("");
   const [role, setRole] = React.useState("");
   const [company, setCompany] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [otp, setOtp] = React.useState("");
+  const [otpSent, setOtpSent] = React.useState(false);
+  const [isSendingOtp, setIsSendingOtp] = React.useState(false);
   
   // Shared fields
   const [email, setEmail] = React.useState("");
@@ -28,6 +32,41 @@ export function Auth({ defaultMode = "signin" }: { defaultMode?: "signin" | "sig
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const { isMockMode } = useApiMode();
+
+  const handleSendOtp = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!phone) {
+      toast.error("Phone number is required");
+      return;
+    }
+    
+    setIsSendingOtp(true);
+    try {
+      if (isMockMode) {
+        setOtpSent(true);
+        toast.success(`Verification code sent to ${phone} (Mock Mode: 123456)`);
+        return;
+      }
+      
+      await apiFetch<void>("/auth/send-otp", "POST", {
+        phone,
+        name,
+        role,
+        email,
+        company,
+        password,
+        country: "KE",
+        currency: "KES",
+      });
+      setOtpSent(true);
+      toast.success(`Verification code sent to ${phone}`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to send verification code");
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,10 +82,13 @@ export function Auth({ defaultMode = "signin" }: { defaultMode?: "signin" | "sig
         await apiFetch<void>("/auth/signup", "POST", {
           name,
           email,
+          role,
           company,
           country: "KE",
           currency: "KES",
           password,
+          phone,
+          otp,
         });
         toast.success("Workspace created successfully! Signing in...");
       }
@@ -166,6 +208,13 @@ export function Auth({ defaultMode = "signin" }: { defaultMode?: "signin" | "sig
                   value={company}
                   onChange={(e) => setCompany(e.target.value)}
                 />
+                <Field
+                  label="Phone number"
+                  required
+                  placeholder="254702599238"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
               </>
             )}
 
@@ -197,6 +246,29 @@ export function Auth({ defaultMode = "signin" }: { defaultMode?: "signin" | "sig
               />
             </div>
 
+            {mode === "signup" && otpSent && (
+              <div className="space-y-1.5">
+                <Field
+                  label="Verification Code (OTP)"
+                  required
+                  placeholder="6-digit code"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                />
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-ink-3">Didn't receive it?</span>
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={isSendingOtp}
+                    className="text-cobalt hover:underline cursor-pointer disabled:opacity-50"
+                  >
+                    {isSendingOtp ? "Sending..." : "Resend code"}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {mode === "signin" ? (
               <label className="flex items-center gap-2 text-xs text-ink-2 select-none cursor-pointer">
                 <input type="checkbox" className="h-3.5 w-3.5 rounded border-line accent-ink cursor-pointer" />
@@ -216,14 +288,26 @@ export function Auth({ defaultMode = "signin" }: { defaultMode?: "signin" | "sig
               </p>
             )}
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-ink text-sm font-medium text-primary-foreground hover:bg-ink/90 cursor-pointer mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? "Processing..." : (mode === "signin" ? "Continue" : "Create workspace")}{" "}
-              {!isSubmitting && <ArrowRight className="h-4 w-4" />}
-            </button>
+            {mode === "signup" && !otpSent ? (
+              <button
+                type="button"
+                onClick={handleSendOtp}
+                disabled={isSendingOtp}
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-ink text-sm font-medium text-primary-foreground hover:bg-ink/90 cursor-pointer mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSendingOtp ? "Sending..." : "Send Verification Code"}{" "}
+                {!isSendingOtp && <ArrowRight className="h-4 w-4" />}
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-ink text-sm font-medium text-primary-foreground hover:bg-ink/90 cursor-pointer mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? "Processing..." : (mode === "signin" ? "Continue" : "Verify & Create Account")}{" "}
+                {!isSubmitting && <ArrowRight className="h-4 w-4" />}
+              </button>
+            )}
           </form>
 
           <div className="mt-6 text-xs text-ink-3">
@@ -243,7 +327,11 @@ export function Auth({ defaultMode = "signin" }: { defaultMode?: "signin" | "sig
                 Already onboarded?{" "}
                 <button
                   type="button"
-                  onClick={() => setMode("signin")}
+                  onClick={() => {
+                    setMode("signin");
+                    setOtpSent(false);
+                    setOtp("");
+                  }}
                   className="text-cobalt hover:underline font-medium cursor-pointer"
                 >
                   Sign in
