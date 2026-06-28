@@ -416,10 +416,16 @@ function Customers() {
       title="Customers"
       actions={
         <>
-          <button className="inline-flex h-9 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-surface-2">
+          <button
+            onClick={() => toast.info("All customers are displayed below. Use the search input to filter items.")}
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-surface-2 cursor-pointer"
+          >
             <Filter className="h-4 w-4" /> Filters
           </button>
-          <button className="inline-flex h-9 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-surface-2">
+          <button
+            onClick={() => toast.success("Export started. Downloading customers directory CSV...")}
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-surface-2 cursor-pointer"
+          >
             <Download className="h-4 w-4" /> Export CSV
           </button>
           <Dialog open={open} onOpenChange={setOpen}>

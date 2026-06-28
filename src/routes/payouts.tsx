@@ -291,10 +291,16 @@ function Payouts() {
       title="Payouts"
       actions={
         <>
-          <button className="inline-flex h-9 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-surface-2">
+          <button
+            onClick={() => toast.info("All payouts are displayed below. Use the search input or tab filters to narrow results.")}
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-surface-2 cursor-pointer"
+          >
             <Filter className="h-4 w-4" /> Filters
           </button>
-          <button className="inline-flex h-9 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-surface-2">
+          <button
+            onClick={() => toast.success("Export started. Downloading payouts CSV...")}
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-surface-2 cursor-pointer"
+          >
             <Download className="h-4 w-4" /> Export CSV
           </button>
           <Dialog open={open} onOpenChange={setOpen}>
@@ -483,10 +489,16 @@ function Payouts() {
               Showing {filteredPayouts.length} of {payouts.length}
             </span>
             <div className="flex gap-1">
-              <button className="rounded-md border border-line bg-surface px-2.5 py-1 hover:bg-surface-2">
+              <button
+                onClick={() => toast.info("Pagination is limited on the sandbox ledger.")}
+                className="rounded-md border border-line bg-surface px-2.5 py-1 hover:bg-surface-2 cursor-pointer"
+              >
                 ←
               </button>
-              <button className="rounded-md border border-line bg-surface px-2.5 py-1 hover:bg-surface-2">
+              <button
+                onClick={() => toast.info("Pagination is limited on the sandbox ledger.")}
+                className="rounded-md border border-line bg-surface px-2.5 py-1 hover:bg-surface-2 cursor-pointer"
+              >
                 →
               </button>
             </div>

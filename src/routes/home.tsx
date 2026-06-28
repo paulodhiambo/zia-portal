@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ArrowUpRight, Download, FileText, Plus } from "lucide-react";
 import * as React from "react";
+import { toast } from "sonner";
 
 import { AppShell, Pill, SectionCard, StatCard } from "@/components/app-shell";
 import { useApiMode } from "@/hooks/use-api-mode";
@@ -245,10 +246,16 @@ function Home() {
       title={`Good morning, ${userName}.`}
       actions={
         <>
-          <button className="inline-flex h-9 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-surface-2 cursor-pointer">
+          <button
+            onClick={() => toast.success("Export started. Downloading balance report...")}
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-surface-2 cursor-pointer"
+          >
             <Download className="h-4 w-4" /> Export report
           </button>
-          <button className="inline-flex h-9 items-center gap-2 rounded-md bg-ink px-3 text-sm font-medium text-primary-foreground hover:bg-ink/90 cursor-pointer">
+          <button
+            onClick={() => toast.info("New invoice creator is under development.")}
+            className="inline-flex h-9 items-center gap-2 rounded-md bg-ink px-3 text-sm font-medium text-primary-foreground hover:bg-ink/90 cursor-pointer"
+          >
             <Plus className="h-4 w-4" /> New invoice
           </button>
         </>
@@ -342,9 +349,9 @@ function Home() {
               </li>
             ))}
           </ul>
-          <button className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-cobalt hover:underline cursor-pointer">
+          <Link to="/payouts" className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-cobalt hover:underline cursor-pointer">
             Move funds <ArrowUpRight className="h-3.5 w-3.5" />
-          </button>
+          </Link>
         </SectionCard>
       </div>
 

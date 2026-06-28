@@ -313,7 +313,12 @@ function Team() {
                   </div>
                   <Pill tone={m.role === "Owner" ? "info" : "neutral"}>{m.role}</Pill>
                   <div className="hidden w-28 text-right text-xs text-ink-3 md:block">{m.last}</div>
-                  <button className="text-xs text-ink-3 hover:text-ink">···</button>
+                  <button
+                    onClick={() => toast.info("Member settings are managed by your identity provider.")}
+                    className="text-xs text-ink-3 hover:text-ink cursor-pointer px-1 py-0.5 rounded hover:bg-surface-2"
+                  >
+                    ···
+                  </button>
                 </li>
               ))}
             </ul>

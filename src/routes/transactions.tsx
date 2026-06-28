@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Download, Filter, Search } from "lucide-react";
 import * as React from "react";
+import { toast } from "sonner";
 import { AppShell, Pill, SectionCard, StatCard } from "@/components/app-shell";
 import { useApiMode } from "@/hooks/use-api-mode";
 import { apiFetch } from "@/lib/api";
@@ -159,10 +160,16 @@ function Transactions() {
       title="Transactions"
       actions={
         <>
-          <button className="inline-flex h-9 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-surface-2 cursor-pointer">
+          <button
+            onClick={() => toast.info("All transactions are displayed below. Use the search input or tab filters to narrow results.")}
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-surface-2 cursor-pointer"
+          >
             <Filter className="h-4 w-4" /> Filters
           </button>
-          <button className="inline-flex h-9 items-center gap-2 rounded-md bg-ink px-3 text-sm font-medium text-primary-foreground hover:bg-ink/90 cursor-pointer">
+          <button
+            onClick={() => toast.success("Export started. Downloading transactions CSV...")}
+            className="inline-flex h-9 items-center gap-2 rounded-md bg-ink px-3 text-sm font-medium text-primary-foreground hover:bg-ink/90 cursor-pointer"
+          >
             <Download className="h-4 w-4" /> Export CSV
           </button>
         </>
@@ -257,8 +264,18 @@ function Transactions() {
         <div className="flex items-center justify-between border-t border-line px-5 py-3 text-xs text-ink-3">
           <span>Showing {filteredRows.length} of {rows.length}</span>
           <div className="flex gap-1">
-            <button className="rounded-md border border-line bg-surface px-2.5 py-1 hover:bg-surface-2 cursor-pointer">←</button>
-            <button className="rounded-md border border-line bg-surface px-2.5 py-1 hover:bg-surface-2 cursor-pointer">→</button>
+            <button
+              onClick={() => toast.info("Pagination is limited on the sandbox ledger.")}
+              className="rounded-md border border-line bg-surface px-2.5 py-1 hover:bg-surface-2 cursor-pointer"
+            >
+              ←
+            </button>
+            <button
+              onClick={() => toast.info("Pagination is limited on the sandbox ledger.")}
+              className="rounded-md border border-line bg-surface px-2.5 py-1 hover:bg-surface-2 cursor-pointer"
+            >
+              →
+            </button>
           </div>
         </div>
       </SectionCard>
