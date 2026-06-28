@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AppShell, Pill, SectionCard } from "@/components/app-shell";
 import { useApiMode } from "@/hooks/use-api-mode";
 import { apiFetch } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogClose,
@@ -150,10 +151,76 @@ function Developer() {
   }, [isMockMode]);
 
   React.useEffect(() => {
-    fetchKeys();
-    fetchWebhooks();
-    fetchEvents();
-  }, [fetchKeys, fetchWebhooks, fetchEvents]);
+    if (isMockMode) {
+      fetchKeys();
+      fetchWebhooks();
+      fetchEvents();
+      return;
+    }
+
+    setIsLoading(true);
+    Promise.all([
+      new Promise<void>((resolve) => {
+        apiFetch<any>("/developer/keys")
+          .then((data) => {
+            const fullKeysMap = JSON.parse(localStorage.getItem("zia_full_keys") || "{}");
+            const list = Array.isArray(data) ? data : (data?.keys || []);
+            const mapped = list.map((k: any) => {
+              const matchedFullKey = k.prefix ? fullKeysMap[k.prefix] : null;
+              return {
+                name: k.name || "API Key",
+                key: matchedFullKey || k.key || (k.prefix ? `${k.prefix}••••` : "••••"),
+                displayKey: k.prefix ? `${k.prefix}••••` : "••••",
+                env: k.environment || k.env || "live",
+                last: k.createdAt || k.lastUsed || "Never",
+              };
+            });
+            setKeys(mapped);
+          })
+          .catch((err) => {
+            console.warn("Failed to fetch live API keys:", err);
+            setKeys(INITIAL_KEYS);
+          })
+          .finally(() => resolve());
+      }),
+      new Promise<void>((resolve) => {
+        apiFetch<any>("/developer/webhooks")
+          .then((data) => {
+            const list = Array.isArray(data) ? data : (data?.webhooks || []);
+            const mapped = list.map((h: any) => ({
+              url: h.url,
+              events: h.events ?? 0,
+              status: h.status === "active" ? "Healthy" : (h.status === "inactive" ? "Paused" : (h.status || "Healthy")),
+            }));
+            setHooks(mapped);
+          })
+          .catch((err) => {
+            console.warn("Failed to fetch live webhooks:", err);
+            setHooks(INITIAL_HOOKS);
+          })
+          .finally(() => resolve());
+      }),
+      new Promise<void>((resolve) => {
+        apiFetch<any>("/developer/webhooks/events")
+          .then((data) => {
+            const list = Array.isArray(data) ? data : (data?.events || []);
+            const mapped = list.map((item: any) => ({
+              event: item.type || item.event || item.name || "event.triggered",
+              status: item.status || item.statusCode || item.code || 200,
+              time: item.timestamp || item.time || item.createdAt || "Just now",
+            }));
+            setEvents(mapped);
+          })
+          .catch((err) => {
+            console.warn("Failed to fetch live webhooks events:", err);
+            setEvents(INITIAL_EVENTS);
+          })
+          .finally(() => resolve());
+      })
+    ]).finally(() => {
+      setIsLoading(false);
+    });
+  }, [isMockMode, fetchKeys, fetchWebhooks]);
 
   const handleCreateKey = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -267,6 +334,64 @@ function Developer() {
     navigator.clipboard.writeText(keyString);
     toast.success("API Key copied to clipboard");
   };
+
+  if (isLoading && !isMockMode) {
+    return (
+      <AppShell eyebrow="Environment settings" title="Developer">
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* API keys shimmer */}
+          <SectionCard title="API Keys" description="Authenticate your SDK clients">
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center justify-between border-b border-line pb-3">
+                  <div>
+                    <Skeleton className="h-4 w-28 bg-ink/10" />
+                    <Skeleton className="mt-1.5 h-3.5 w-48 bg-ink/10" />
+                  </div>
+                  <Skeleton className="h-6 w-16 bg-ink/10" />
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+
+          {/* Webhooks shimmer */}
+          <SectionCard title="Webhook Endpoints" description="Receive real-time payment event notifications">
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center justify-between border-b border-line pb-3">
+                  <div>
+                    <Skeleton className="h-4 w-52 bg-ink/10" />
+                    <Skeleton className="mt-1.5 h-3.5 w-16 bg-ink/10" />
+                  </div>
+                  <Skeleton className="h-6 w-12 bg-ink/10" />
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+        </div>
+
+        {/* Webhook Events shimmer */}
+        <div className="mt-6">
+          <SectionCard title="Recent Webhook Events">
+            <div className="space-y-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center justify-between py-2 border-b border-line">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-6 w-10 bg-ink/10" />
+                    <div>
+                      <Skeleton className="h-4 w-40 bg-ink/10" />
+                      <Skeleton className="mt-1 h-3.5 w-24 bg-ink/10" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-4 w-16 bg-ink/10" />
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell

@@ -6,6 +6,7 @@ import * as React from "react";
 import { AppShell, Pill, SectionCard, StatCard } from "@/components/app-shell";
 import { useApiMode } from "@/hooks/use-api-mode";
 import { apiFetch } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/home")({
   head: () => ({ meta: [{ title: "Overview — Zia Merchant" }] }),
@@ -99,6 +100,91 @@ function Home() {
         setIsLoading(false);
       });
   }, [isMockMode]);
+
+  if (isLoading && !isMockMode) {
+    return (
+      <AppShell
+        eyebrow="Loading..."
+        title="Loading dashboard overview..."
+      >
+        {/* StatCards shimmer */}
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-xl border border-line bg-card p-5">
+              <Skeleton className="h-4 w-24 bg-ink/10" />
+              <Skeleton className="mt-3 h-8 w-36 bg-ink/10" />
+              <Skeleton className="mt-2 h-4 w-16 bg-ink/10" />
+            </div>
+          ))}
+        </div>
+
+        {/* Charts & Treasury shimmer */}
+        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <div className="rounded-xl border border-line bg-card p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Skeleton className="h-5 w-40 bg-ink/10" />
+                  <Skeleton className="mt-1 h-3 w-56 bg-ink/10" />
+                </div>
+                <Skeleton className="h-6 w-16 bg-ink/10" />
+              </div>
+              <Skeleton className="mt-6 h-[260px] w-full bg-ink/10" />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-line bg-card p-5">
+            <Skeleton className="h-5 w-32 bg-ink/10" />
+            <Skeleton className="mt-1.5 h-3.5 w-48 bg-ink/10" />
+            <Skeleton className="mt-6 h-10 w-44 bg-ink/10" />
+            <Skeleton className="mt-2 h-4 w-24 bg-ink/10" />
+            <div className="mt-6 space-y-4">
+              {[1, 2, 3].map((j) => (
+                <div key={j} className="flex justify-between items-center py-1">
+                  <Skeleton className="h-4 w-28 bg-ink/10" />
+                  <Skeleton className="h-4 w-24 bg-ink/10" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Transactions & Checklist shimmer */}
+        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <div className="rounded-xl border border-line bg-card">
+              <div className="p-5">
+                <Skeleton className="h-5 w-36 bg-ink/10" />
+              </div>
+              <div className="space-y-4 p-5 pt-0">
+                {[1, 2, 3, 4, 5].map((k) => (
+                  <div key={k} className="flex justify-between items-center py-2">
+                    <Skeleton className="h-4 w-12 bg-ink/10" />
+                    <Skeleton className="h-4 w-40 bg-ink/10" />
+                    <Skeleton className="h-4 w-16 bg-ink/10" />
+                    <Skeleton className="h-6 w-20 bg-ink/10" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-line bg-card p-5">
+            <Skeleton className="h-5 w-24 bg-ink/10" />
+            <Skeleton className="mt-1.5 h-3.5 w-40 bg-ink/10" />
+            <div className="mt-6 space-y-3">
+              {[1, 2, 3].map((l) => (
+                <div key={l} className="flex justify-between items-center p-3 border border-line rounded-md">
+                  <Skeleton className="h-4 w-40 bg-ink/10" />
+                  <Skeleton className="h-4 w-12 bg-ink/10" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell

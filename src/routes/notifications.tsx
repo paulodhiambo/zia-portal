@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AppShell, Pill, SectionCard } from "@/components/app-shell";
 import { useApiMode } from "@/hooks/use-api-mode";
 import { apiFetch } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogClose,
@@ -90,6 +91,7 @@ function Notifications() {
   const { isMockMode } = useApiMode();
   const [notifications, setNotifications] = React.useState<NotificationItem[]>(INITIAL_ITEMS);
   const [selectedCategory, setSelectedCategory] = React.useState<"All" | "Disputes" | "Payouts" | "Security" | "Product">("All");
+  const [isLoading, setIsLoading] = React.useState(false);
 
   // Preferences State
   const [prefDialogOpen, setPrefDialogOpen] = React.useState(false);
@@ -101,9 +103,9 @@ function Notifications() {
   const fetchNotifications = React.useCallback(() => {
     if (isMockMode) {
       setNotifications(INITIAL_ITEMS);
-      return;
+      return Promise.resolve();
     }
-    apiFetch<any>("/notifications")
+    return apiFetch<any>("/notifications")
       .then((data) => {
         const list = Array.isArray(data) ? data : (data?.notifications || []);
         const mapped = list.map((item: any) => {
@@ -145,9 +147,8 @@ function Notifications() {
   }, [isMockMode]);
 
   React.useEffect(() => {
-    fetchNotifications();
-
     if (isMockMode) {
+      fetchNotifications();
       setEmailDigest(true);
       setDisputeAlert(true);
       setPayoutAlert(true);
@@ -155,19 +156,25 @@ function Notifications() {
       return;
     }
 
-    apiFetch<any>("/profile")
-      .then((data) => {
-        const prefs = data?.preferences;
-        if (prefs) {
-          setEmailDigest(!!prefs.dailyDigest);
-          setDisputeAlert(!!prefs.alertOnDisputes);
-          setPayoutAlert(!!prefs.weeklyTreasuryReport);
-          setSecurityAlert(!!prefs.betaFeatures);
-        }
-      })
-      .catch((err) => {
-        console.warn("Failed to fetch fresh profile preferences in Notifications page:", err);
-      });
+    setIsLoading(true);
+    Promise.all([
+      fetchNotifications(),
+      apiFetch<any>("/profile")
+        .then((data) => {
+          const prefs = data?.preferences;
+          if (prefs) {
+            setEmailDigest(!!prefs.dailyDigest);
+            setDisputeAlert(!!prefs.alertOnDisputes);
+            setPayoutAlert(!!prefs.weeklyTreasuryReport);
+            setSecurityAlert(!!prefs.betaFeatures);
+          }
+        })
+        .catch((err) => {
+          console.warn("Failed to fetch fresh profile preferences in Notifications page:", err);
+        })
+    ]).finally(() => {
+      setIsLoading(false);
+    });
   }, [isMockMode, fetchNotifications]);
 
   const handleMarkAllRead = async () => {
@@ -220,6 +227,33 @@ function Notifications() {
     if (cat === "All") return notifications.length;
     return notifications.filter((n) => n.category === cat).length;
   };
+
+  if (isLoading && !isMockMode) {
+    return (
+      <AppShell eyebrow="Updates & alerts" title="Notifications">
+        <SectionCard>
+          <div className="flex justify-between items-center pb-4 border-b border-line">
+            <Skeleton className="h-9 w-40 bg-ink/10" />
+            <Skeleton className="h-9 w-28 bg-ink/10" />
+          </div>
+          <div className="mt-6 space-y-5">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex gap-4 items-start pb-4 border-b border-line">
+                <Skeleton className="h-9 w-9 rounded-full bg-ink/10" />
+                <div className="flex-1 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <Skeleton className="h-4 w-48 bg-ink/10" />
+                    <Skeleton className="h-3.5 w-16 bg-ink/10" />
+                  </div>
+                  <Skeleton className="h-3.5 w-full max-w-xl bg-ink/10" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell

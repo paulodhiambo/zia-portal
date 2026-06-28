@@ -4,6 +4,7 @@ import * as React from "react";
 import { toast } from "sonner";
 import { useApiMode } from "@/hooks/use-api-mode";
 import { apiFetch } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { AppShell, Pill, SectionCard, StatCard } from "@/components/app-shell";
 import {
@@ -235,6 +236,42 @@ function Payouts() {
   const pendingPayouts = payouts
     .filter((p) => p.status === "Pending")
     .reduce((sum, p) => sum + p.numericAmount, 0);
+
+  if (isLoading && !isMockMode) {
+    return (
+      <AppShell eyebrow="Overview" title="Payouts">
+        <div className="grid gap-4 md:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-xl border border-line bg-card p-5">
+              <Skeleton className="h-4 w-24 bg-ink/10" />
+              <Skeleton className="mt-3 h-8 w-32 bg-ink/10" />
+            </div>
+          ))}
+        </div>
+        <SectionCard padded={false}>
+          <div className="flex flex-col gap-3 border-b border-line p-4 md:flex-row md:items-center md:justify-between">
+            <Skeleton className="h-9 w-full max-w-sm bg-ink/10" />
+            <div className="flex gap-1.5">
+              {[1, 2, 3, 4].map((j) => (
+                <Skeleton key={j} className="h-8 w-16 bg-ink/10" />
+              ))}
+            </div>
+          </div>
+          <div className="space-y-4 p-5">
+            {[1, 2, 3, 4].map((k) => (
+              <div key={k} className="flex justify-between items-center py-2">
+                <Skeleton className="h-4 w-28 bg-ink/10" />
+                <Skeleton className="h-4 w-32 bg-ink/10" />
+                <Skeleton className="h-4 w-24 bg-ink/10" />
+                <Skeleton className="h-4 w-16 bg-ink/10" />
+                <Skeleton className="h-6 w-20 bg-ink/10" />
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell

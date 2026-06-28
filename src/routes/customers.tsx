@@ -4,6 +4,7 @@ import * as React from "react";
 import { toast } from "sonner";
 import { useApiMode } from "@/hooks/use-api-mode";
 import { apiFetch } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { AppShell, Pill, SectionCard, StatCard } from "@/components/app-shell";
 import {
@@ -344,6 +345,55 @@ function Customers() {
   // Calculate totals
   const totalVolume = customers.reduce((sum, c) => sum + c.numericVolume, 0);
   const activeCount = customers.filter((c) => c.status === "Active").length;
+
+  if (isLoading && !isMockMode) {
+    return (
+      <AppShell eyebrow="Overview" title="Customers">
+        <div className="grid gap-4 md:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-xl border border-line bg-card p-5">
+              <Skeleton className="h-4 w-24 bg-ink/10" />
+              <Skeleton className="mt-3 h-8 w-32 bg-ink/10" />
+            </div>
+          ))}
+        </div>
+        <div className="mt-6 grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <SectionCard padded={false}>
+              <div className="p-4 border-b border-line">
+                <Skeleton className="h-9 w-full bg-ink/10" />
+              </div>
+              <div className="space-y-4 p-5">
+                {[1, 2, 3, 4, 5].map((k) => (
+                  <div key={k} className="flex justify-between items-center py-2">
+                    <Skeleton className="h-4 w-40 bg-ink/10" />
+                    <Skeleton className="h-4 w-24 bg-ink/10" />
+                    <Skeleton className="h-4 w-16 bg-ink/10" />
+                    <Skeleton className="h-6 w-20 bg-ink/10" />
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
+          <div className="lg:col-span-1">
+            <SectionCard>
+              <Skeleton className="h-12 w-12 rounded-full bg-ink/10" />
+              <Skeleton className="mt-4 h-6 w-48 bg-ink/10" />
+              <Skeleton className="mt-2 h-4 w-32 bg-ink/10" />
+              <div className="mt-6 space-y-4">
+                {[1, 2, 3].map((j) => (
+                  <div key={j} className="flex justify-between items-center">
+                    <Skeleton className="h-4 w-20 bg-ink/10" />
+                    <Skeleton className="h-4 w-24 bg-ink/10" />
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell
