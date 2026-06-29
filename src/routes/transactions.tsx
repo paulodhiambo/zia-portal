@@ -138,6 +138,92 @@ function Transactions() {
       });
   };
 
+  const handleExportCSV = async () => {
+    toast.info("Preparing transaction export...");
+
+    if (isMockMode) {
+      // Mock CSV generation and download
+      const headers = ["ID", "Date", "Amount", "Currency", "Method", "Status", "Customer", "Email", "Phone"];
+      const csvLines = [headers.join(",")];
+      rows.forEach((r) => {
+        const line = [
+          r.id,
+          `"${r.date}"`,
+          `"${r.amount}"`,
+          `"KES"`,
+          `"${r.method}"`,
+          `"${r.status}"`,
+          `"${r.counterparty}"`,
+          `"customer@example.com"`,
+          `"+254700000000"`
+        ];
+        csvLines.push(line.join(","));
+      });
+      const blob = new Blob([csvLines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `transactions_export_${Date.now()}.csv`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("CSV file downloaded successfully (Sandbox Mode)");
+      return;
+    }
+
+    try {
+      const apiBase = import.meta.env.VITE_API_URL || "";
+      const portalToken = localStorage.getItem("zia_portal_token");
+      
+      const queryParams = new URLSearchParams();
+      if (statusFilter !== "All") {
+        queryParams.set("status", statusFilter.toLowerCase());
+      }
+      if (search) {
+        queryParams.set("method", search.toLowerCase());
+      }
+      
+      const url = `${apiBase}/api/v1/transactions/export?${queryParams.toString()}`;
+      
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          ...(portalToken ? { "Authorization": `Bearer ${portalToken}` } : {}),
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Server returned status ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      
+      // Try to read content disposition header if available
+      const disposition = response.headers.get("content-disposition");
+      let filename = `transactions_export_${Date.now()}.csv`;
+      if (disposition && disposition.indexOf("attachment") !== -1) {
+        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+        const matches = filenameRegex.exec(disposition);
+        if (matches != null && matches[1]) { 
+          filename = matches[1].replace(/['"]/g, "");
+        }
+      }
+      
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("CSV file downloaded successfully");
+    } catch (err: any) {
+      console.error("Failed to export transactions CSV:", err);
+      toast.error(err.message || "Failed to download CSV export");
+    }
+  };
+
   React.useEffect(() => {
     if (isMockMode) {
       setRows(INITIAL_ROWS);
@@ -263,7 +349,7 @@ function Transactions() {
             <Filter className="h-4 w-4" /> Filters
           </button>
           <button
-            onClick={() => toast.success("Export started. Downloading transactions CSV...")}
+            onClick={handleExportCSV}
             className="inline-flex h-9 items-center gap-2 rounded-md bg-ink px-3 text-sm font-medium text-primary-foreground hover:bg-ink/90 cursor-pointer"
           >
             <Download className="h-4 w-4" /> Export CSV
