@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Copy, Plus, Webhook } from "lucide-react";
+import { Copy, Plus, Webhook, Trash2 } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
 
@@ -24,6 +24,7 @@ export const Route = createFileRoute("/developer")({
 });
 
 interface ApiKey {
+  id: string;
   name: string;
   key: string;
   displayKey: string;
@@ -72,9 +73,9 @@ const INITIAL_EVENTS: WebhookEvent[] = [
 ];
 
 const INITIAL_KEYS: ApiKey[] = [
-  { name: "Production · Server", key: "zia_live_2f6a7d8e9f0a1b2c3d4e5f6a7d8e9f0a", displayKey: "sk_live_••••_8Q21f3", env: "live", last: "12 min ago" },
-  { name: "Production · Publishable", key: "zia_live_x4npy8q2z1b0c9a7f5d3e2d1c0b9a8f7", displayKey: "pk_live_••••_X4nP", env: "live", last: "3 min ago" },
-  { name: "Sandbox · Server", key: "zia_test_m0e2a8q2z1b0c9a7f5d3e2d1c0b9a8f7", displayKey: "sk_test_••••_M0e2a", env: "test", last: "1h ago" },
+  { id: "key_1", name: "Production · Server", key: "zia_live_2f6a7d8e9f0a1b2c3d4e5f6a7d8e9f0a", displayKey: "sk_live_••••_8Q21f3", env: "live", last: "12 min ago" },
+  { id: "key_2", name: "Production · Publishable", key: "zia_live_x4npy8q2z1b0c9a7f5d3e2d1c0b9a8f7", displayKey: "pk_live_••••_X4nP", env: "live", last: "3 min ago" },
+  { id: "key_3", name: "Sandbox · Server", key: "zia_test_m0e2a8q2z1b0c9a7f5d3e2d1c0b9a8f7", displayKey: "sk_test_••••_M0e2a", env: "test", last: "1h ago" },
 ];
 
 const INITIAL_HOOKS: WebhookEndpoint[] = [
@@ -185,6 +186,7 @@ function Developer() {
         const mapped = list.map((k: any) => {
           const matchedFullKey = k.prefix ? fullKeysMap[k.prefix] : null;
           return {
+            id: k.id || k.key || k.prefix || Math.random().toString(),
             name: k.name || "API Key",
             key: matchedFullKey || k.key || (k.prefix ? `${k.prefix}••••` : "••••"),
             displayKey: k.prefix ? `${k.prefix}••••` : "••••",
@@ -262,6 +264,7 @@ function Developer() {
             const mapped = list.map((k: any) => {
               const matchedFullKey = k.prefix ? fullKeysMap[k.prefix] : null;
               return {
+                id: k.id || k.key || k.prefix || Math.random().toString(),
                 name: k.name || "API Key",
                 key: matchedFullKey || k.key || (k.prefix ? `${k.prefix}••••` : "••••"),
                 displayKey: k.prefix ? `${k.prefix}••••` : "••••",
@@ -327,6 +330,7 @@ function Developer() {
       const mockFullKey = `${prefix}_${keyEnv}_${randomSuffix}7d8e9f0a1b2c3d4e5f6a`;
 
       const newKey: ApiKey = {
+        id: mockFullKey,
         name: `${keyName} · ${keyType}`,
         key: mockFullKey,
         displayKey: generatedKey,
@@ -371,6 +375,28 @@ function Developer() {
       setKeyEnv("live");
       setKeyType("Server");
     }
+  };
+
+  const handleRevokeKey = (keyId: string) => {
+    if (isMockMode) {
+      setKeys((prev) => prev.filter((k) => k.id !== keyId));
+      toast.success("API Key revoked successfully (Sandbox Mode)");
+      return;
+    }
+
+    setIsLoading(true);
+    apiFetch<any>(`/developer/keys/${keyId}`, "DELETE")
+      .then(() => {
+        toast.success("API Key revoked successfully");
+        fetchKeys();
+      })
+      .catch((err) => {
+        console.error("Failed to revoke API key:", err);
+        toast.error(err.message || "Failed to revoke API key");
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
   };
 
   const handleAddWebhook = async (e: React.FormEvent) => {
@@ -642,13 +668,22 @@ function Developer() {
                     <code className="mt-1 block truncate font-mono text-xs text-ink-3">{k.displayKey}</code>
                   </div>
                   <div className="hidden text-xs text-ink-3 md:block">Used {k.last}</div>
-                  <button
-                    onClick={() => handleCopyKey(k.key)}
-                    title="Copy to clipboard"
-                    className="grid h-8 w-8 place-items-center rounded-md border border-line text-ink-2 hover:bg-surface-2 cursor-pointer"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleCopyKey(k.key)}
+                      title="Copy to clipboard"
+                      className="grid h-8 w-8 place-items-center rounded-md border border-line text-ink-2 hover:bg-surface-2 cursor-pointer"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleRevokeKey(k.id)}
+                      title="Revoke key"
+                      className="grid h-8 w-8 place-items-center rounded-md border border-line text-destructive hover:bg-destructive/10 cursor-pointer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
