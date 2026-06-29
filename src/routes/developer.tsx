@@ -54,6 +54,14 @@ interface Workspace {
   createdAt: string;
 }
 
+interface SettlementConfig {
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  bankCode: string;
+  currency: string;
+}
+
 const INITIAL_WORKSPACE: Workspace = {
   id: "895b70a4-3557-47ee-8c76-3df70e4a2246",
   code: "M-02D242",
@@ -107,6 +115,13 @@ function Developer() {
   const [legalName, setLegalName] = React.useState("");
   const [country, setCountry] = React.useState("");
   const [defaultCurrency, setDefaultCurrency] = React.useState("");
+
+  // Settlement configuration state
+  const [bankName, setBankName] = React.useState("");
+  const [accountName, setAccountName] = React.useState("");
+  const [accountNumber, setAccountNumber] = React.useState("");
+  const [bankCode, setBankCode] = React.useState("");
+  const [settlementCurrency, setSettlementCurrency] = React.useState("KES");
 
   React.useEffect(() => {
     if (workspace) {
@@ -171,6 +186,80 @@ function Developer() {
       .catch((err) => {
         console.error("Failed to update workspace:", err);
         toast.error("Failed to update workspace details.");
+      });
+  };
+
+  const fetchSettlement = React.useCallback(() => {
+    if (isMockMode) {
+      const stored = localStorage.getItem("zia_settlement_config");
+      if (stored) {
+        try {
+          const sc = JSON.parse(stored);
+          setBankName(sc.bankName || "");
+          setAccountName(sc.accountName || "");
+          setAccountNumber(sc.accountNumber || "");
+          setBankCode(sc.bankCode || "");
+          setSettlementCurrency(sc.currency || "KES");
+        } catch {}
+      } else {
+        setBankName("Equity Bank");
+        setAccountName("Jane Doe");
+        setAccountNumber("1234567890");
+        setBankCode("EQBLKENA");
+        setSettlementCurrency("KES");
+      }
+      return;
+    }
+
+    apiFetch<SettlementConfig | null>("/workspace/settlement")
+      .then((data) => {
+        if (data) {
+          setBankName(data.bankName || "");
+          setAccountName(data.accountName || "");
+          setAccountNumber(data.accountNumber || "");
+          setBankCode(data.bankCode || "");
+          setSettlementCurrency(data.currency || "KES");
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch settlement config:", err);
+      });
+  }, [isMockMode]);
+
+  const handleUpdateSettlement = (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload: SettlementConfig = {
+      bankName,
+      accountName,
+      accountNumber,
+      bankCode,
+      currency: settlementCurrency,
+    };
+
+    if (isMockMode) {
+      localStorage.setItem("zia_settlement_config", JSON.stringify(payload));
+      toast.success("Settlement configuration saved successfully (Sandbox Mode)");
+      return;
+    }
+
+    setIsLoading(true);
+    apiFetch<SettlementConfig>("/workspace/settlement", "PUT", payload)
+      .then((data) => {
+        if (data) {
+          setBankName(data.bankName || "");
+          setAccountName(data.accountName || "");
+          setAccountNumber(data.accountNumber || "");
+          setBankCode(data.bankCode || "");
+          setSettlementCurrency(data.currency || "KES");
+        }
+        toast.success("Settlement configuration saved successfully");
+      })
+      .catch((err) => {
+        console.error("Failed to update settlement:", err);
+        toast.error("Failed to save settlement configuration");
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
   };
 
@@ -250,12 +339,19 @@ function Developer() {
       fetchWebhooks();
       fetchEvents();
       fetchWorkspace();
+      fetchSettlement();
       return;
     }
 
     setIsLoading(true);
     Promise.all([
       fetchWorkspace(),
+      new Promise<void>((resolve) => {
+        try {
+          fetchSettlement();
+        } catch {}
+        resolve();
+      }),
       new Promise<void>((resolve) => {
         apiFetch<any>("/developer/keys")
           .then((data) => {
@@ -317,7 +413,7 @@ function Developer() {
     ]).finally(() => {
       setIsLoading(false);
     });
-  }, [isMockMode, fetchKeys, fetchWebhooks, fetchWorkspace]);
+  }, [isMockMode, fetchKeys, fetchWebhooks, fetchWorkspace, fetchSettlement]);
 
   const handleCreateKey = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -778,6 +874,82 @@ function Developer() {
                   className="inline-flex h-9 items-center justify-center rounded-md bg-ink px-4 text-sm font-medium text-primary-foreground hover:bg-ink/90 cursor-pointer"
                 >
                   Save settings
+                </button>
+              </div>
+            </form>
+          </SectionCard>
+
+          <SectionCard title="Settlement Configuration" description="Configure default target bank account settlement details.">
+            <form onSubmit={handleUpdateSettlement} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="text-xs font-medium text-ink-2">Bank Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    className="mt-1.5 h-10 w-full rounded-md border border-line bg-surface px-3 text-sm text-ink placeholder:text-ink-3 focus:border-ink/40 focus:outline-none focus:ring-2 focus:ring-cobalt/30"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-ink-2">Settlement Currency</label>
+                  <select
+                    value={settlementCurrency}
+                    onChange={(e) => setSettlementCurrency(e.target.value)}
+                    className="mt-1.5 h-10 w-full rounded-md border border-line bg-surface px-3 text-sm text-ink focus:border-ink/40 focus:outline-none focus:ring-2 focus:ring-cobalt/30"
+                  >
+                    <option value="KES">KES (Kenyan Shilling)</option>
+                    <option value="USD">USD (US Dollar)</option>
+                    <option value="EUR">EUR (Euro)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="text-xs font-medium text-ink-2">Account Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={accountName}
+                    onChange={(e) => setAccountName(e.target.value)}
+                    className="mt-1.5 h-10 w-full rounded-md border border-line bg-surface px-3 text-sm text-ink placeholder:text-ink-3 focus:border-ink/40 focus:outline-none focus:ring-2 focus:ring-cobalt/30"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-ink-2">Account Number</label>
+                  <input
+                    type="text"
+                    required
+                    value={accountNumber}
+                    onChange={(e) => setAccountNumber(e.target.value)}
+                    className="mt-1.5 h-10 w-full rounded-md border border-line bg-surface px-3 text-sm text-ink placeholder:text-ink-3 focus:border-ink/40 focus:outline-none focus:ring-2 focus:ring-cobalt/30"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="text-xs font-medium text-ink-2 font-mono uppercase tracking-wider">Bank Code / BIC</label>
+                  <input
+                    type="text"
+                    required
+                    value={bankCode}
+                    onChange={(e) => setBankCode(e.target.value)}
+                    className="mt-1.5 h-10 w-full rounded-md border border-line bg-surface px-3 text-sm text-ink placeholder:text-ink-3 focus:border-ink/40 focus:outline-none focus:ring-2 focus:ring-cobalt/30"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  className="inline-flex h-9 items-center justify-center rounded-md bg-ink px-4 text-sm font-medium text-primary-foreground hover:bg-ink/90 cursor-pointer"
+                >
+                  Save settlement
                 </button>
               </div>
             </form>
