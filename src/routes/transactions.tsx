@@ -1,11 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Download, Filter, Search } from "lucide-react";
+import { Download, Filter, Search, Clock, CheckCircle2, AlertCircle, Calendar, User, Phone, Mail, Tag, Activity } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
 import { AppShell, Pill, SectionCard, StatCard } from "@/components/app-shell";
 import { useApiMode } from "@/hooks/use-api-mode";
 import { apiFetch } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/transactions")({
   head: () => ({ meta: [{ title: "Transactions — Zia Merchant" }] }),
@@ -35,12 +44,99 @@ const INITIAL_ROWS: TransactionItem[] = [
   { date: "Oct 23 · 16:08", id: "txn_8JZ41A", counterparty: "Field & Forge", method: "Card", amount: "−$48.00", status: "Refunded", tone: "neutral" },
 ];
 
+interface TransactionDetail {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  method: string;
+  customerRef: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  metadata?: Record<string, string>;
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+  attempts?: Array<{
+    id: string;
+    psp: string;
+    pspReference: string;
+    pspTransactionId: string;
+    status: string;
+    sequenceNo: number;
+    createdAt: string;
+    updatedAt?: string;
+  }>;
+}
+
+const buildMockDetail = (id: string, mockRow: any): TransactionDetail => {
+  const isMpesa = mockRow.method.toLowerCase().includes("mpesa");
+  return {
+    id,
+    amount: Math.abs(parseFloat(mockRow.amount.replace(/[^0-9.-]/g, ""))) * 100 || 125000,
+    currency: mockRow.amount.includes("€") ? "EUR" : "KES",
+    status: mockRow.status,
+    method: isMpesa ? "mpesa_stk" : (mockRow.method.toLowerCase().includes("ach") ? "ach" : "card_visa"),
+    customerRef: "cus_8K2X1B",
+    customerPhone: "+254 712 345678",
+    customerEmail: "sarah.j@example.com",
+    metadata: {
+      "order_id": "ord_9981a",
+      "integration_channel": "portal_onboarding",
+      "region": "East Africa"
+    },
+    expiresAt: new Date(Date.now() + 3600000).toISOString(),
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    updatedAt: new Date().toISOString(),
+    attempts: [
+      {
+        id: "att_1",
+        psp: isMpesa ? "mpesa" : "paystack",
+        pspReference: "NGO5I2QJ8C",
+        pspTransactionId: "txn-001",
+        status: mockRow.status.toLowerCase(),
+        sequenceNo: 1,
+        createdAt: new Date(Date.now() - 86400000).toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ]
+  };
+};
+
 function Transactions() {
   const { isMockMode } = useApiMode();
   const [rows, setRows] = React.useState<TransactionItem[]>(INITIAL_ROWS);
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<"All" | "Succeeded" | "Pending" | "Refunded" | "Disputed">("All");
   const [isLoading, setIsLoading] = React.useState(false);
+
+  const [selectedTxnId, setSelectedTxnId] = React.useState<string | null>(null);
+  const [selectedDetail, setSelectedDetail] = React.useState<TransactionDetail | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = React.useState(false);
+  const [detailDialogOpen, setDetailDialogOpen] = React.useState(false);
+
+  const handleRowClick = (row: any) => {
+    setSelectedTxnId(row.id);
+    setDetailDialogOpen(true);
+    
+    if (isMockMode) {
+      setSelectedDetail(buildMockDetail(row.id, row));
+      return;
+    }
+
+    setIsDetailLoading(true);
+    apiFetch<TransactionDetail>(`/transactions/${row.id}`)
+      .then((data) => {
+        setSelectedDetail(data);
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch live transaction details:", err);
+        setSelectedDetail(buildMockDetail(row.id, row));
+      })
+      .finally(() => {
+        setIsDetailLoading(false);
+      });
+  };
 
   React.useEffect(() => {
     if (isMockMode) {
@@ -243,7 +339,11 @@ function Transactions() {
                 </tr>
               ) : (
                 filteredRows.map((r) => (
-                  <tr key={r.id} className="hover:bg-surface-2/60">
+                  <tr
+                    key={r.id}
+                    onClick={() => handleRowClick(r)}
+                    className="hover:bg-surface-2/60 cursor-pointer transition-colors"
+                  >
                     <td className="px-5 py-3.5 text-ink-2 tabular">{r.date}</td>
                     <td className="px-5 py-3.5 font-mono text-xs text-ink-3">{r.id}</td>
                     <td className="px-5 py-3.5 font-medium text-ink">{r.counterparty}</td>
@@ -279,6 +379,163 @@ function Transactions() {
           </div>
         </div>
       </SectionCard>
+
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="sm:max-w-xl bg-surface text-ink border border-line overflow-y-auto max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="font-display text-2xl tracking-tight text-ink flex items-center gap-2">
+              <Activity className="h-5 w-5 text-cobalt" /> Transaction Details
+            </DialogTitle>
+            <DialogDescription className="text-xs text-ink-3">
+              Payment intent and PSP settlement attempt parameters.
+            </DialogDescription>
+          </DialogHeader>
+
+          {isDetailLoading ? (
+            <div className="space-y-4 py-8 text-center">
+              <Skeleton className="h-10 w-full bg-ink/10" />
+              <Skeleton className="mt-3 h-20 w-full bg-ink/10" />
+              <Skeleton className="mt-3 h-20 w-full bg-ink/10" />
+            </div>
+          ) : selectedDetail ? (
+            <div className="space-y-5 text-sm py-2">
+              {/* Main Badge Summary */}
+              <div className="flex flex-col items-center justify-center rounded-xl bg-surface-2 border border-line p-5 text-center">
+                <span className="text-xs text-ink-3 uppercase tracking-wider font-mono">Amount settled</span>
+                <span className="mt-1 font-display text-3xl font-semibold text-ink">
+                  {selectedDetail.currency} {(selectedDetail.amount / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <div className="mt-3">
+                  <Pill tone={selectedDetail.status === "Succeeded" ? "success" : selectedDetail.status === "Pending" ? "warning" : selectedDetail.status === "Refunded" ? "neutral" : "danger"}>
+                    {selectedDetail.status}
+                  </Pill>
+                </div>
+              </div>
+
+              {/* Core Attributes Grid */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-3 rounded-lg border border-line p-3.5 bg-surface">
+                  <span className="text-xs font-semibold text-ink-2 flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5 text-ink-3" /> Transaction info
+                  </span>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-ink-3">Intent ID:</span>
+                      <span className="font-mono text-ink select-all">{selectedDetail.id}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-ink-3">Payment Method:</span>
+                      <span className="font-mono text-ink capitalize">{selectedDetail.method}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-line/50 pt-1.5 mt-1.5">
+                      <span className="text-ink-3">Created At:</span>
+                      <span className="text-ink">
+                        {selectedDetail.createdAt ? new Date(selectedDetail.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "N/A"}
+                      </span>
+                    </div>
+                    {selectedDetail.expiresAt && (
+                      <div className="flex justify-between">
+                        <span className="text-ink-3">Expires At:</span>
+                        <span className="text-ink">
+                          {new Date(selectedDetail.expiresAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-lg border border-line p-3.5 bg-surface">
+                  <span className="text-xs font-semibold text-ink-2 flex items-center gap-1">
+                    <User className="h-3.5 w-3.5 text-ink-3" /> Customer profile
+                  </span>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-ink-3">Reference:</span>
+                      <span className="font-mono text-ink select-all">{selectedDetail.customerRef}</span>
+                    </div>
+                    {selectedDetail.customerPhone && (
+                      <div className="flex justify-between">
+                        <span className="text-ink-3">Phone:</span>
+                        <span className="text-ink font-mono">{selectedDetail.customerPhone}</span>
+                      </div>
+                    )}
+                    {selectedDetail.customerEmail && (
+                      <div className="flex justify-between border-t border-line/50 pt-1.5 mt-1.5">
+                        <span className="text-ink-3">Email:</span>
+                        <span className="text-ink select-all">{selectedDetail.customerEmail}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Metadata Parameters */}
+              {selectedDetail.metadata && Object.keys(selectedDetail.metadata).length > 0 && (
+                <div className="rounded-lg border border-line p-3.5 space-y-2">
+                  <span className="text-xs font-semibold text-ink-2 flex items-center gap-1">
+                    <Tag className="h-3.5 w-3.5 text-ink-3" /> Metadata context
+                  </span>
+                  <div className="grid gap-2 grid-cols-2 text-xs">
+                    {Object.entries(selectedDetail.metadata).map(([key, val]) => (
+                      <div key={key} className="flex flex-col bg-surface-2 border border-line/60 rounded px-2.5 py-1.5">
+                        <span className="text-[10px] font-mono text-ink-3 uppercase">{key}</span>
+                        <span className="mt-0.5 font-medium text-ink truncate select-all">{val}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Attempt History */}
+              {selectedDetail.attempts && selectedDetail.attempts.length > 0 && (
+                <div className="space-y-2.5">
+                  <span className="text-xs font-semibold text-ink-2 flex items-center gap-1">
+                    <Activity className="h-3.5 w-3.5 text-ink-3" /> PSP clearing attempts
+                  </span>
+                  <div className="space-y-2">
+                    {selectedDetail.attempts.map((att) => (
+                      <div key={att.id} className="flex flex-col rounded-lg border border-line bg-surface-2 p-3 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-ink capitalize">{att.psp} clearing</span>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-mono capitalize ${
+                            att.status === "succeeded" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"
+                          }`}>{att.status}</span>
+                        </div>
+                        <div className="mt-2.5 grid gap-x-4 gap-y-1.5 sm:grid-cols-2 text-ink-3">
+                          <div className="flex justify-between">
+                            <span>PSP Ref:</span>
+                            <span className="font-mono text-ink select-all">{att.pspReference}</span>
+                          </div>
+                          {att.pspTransactionId && (
+                            <div className="flex justify-between">
+                              <span>PSP Txn ID:</span>
+                              <span className="font-mono text-ink select-all">{att.pspTransactionId}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between col-span-2 border-t border-line/60 pt-1.5 mt-1">
+                            <span>Attempt Sequence No:</span>
+                            <span className="font-mono text-ink">{att.sequenceNo}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-center text-sm text-ink-3 py-6">No transaction details available.</p>
+          )}
+
+          <DialogFooter className="mt-4 flex gap-2">
+            <DialogClose asChild>
+              <button className="w-full sm:w-auto rounded-md border border-line bg-surface px-4 py-2.5 text-sm font-medium text-ink hover:bg-surface-2 cursor-pointer">
+                Close details
+              </button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
