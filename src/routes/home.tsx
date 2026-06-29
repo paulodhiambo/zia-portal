@@ -65,6 +65,8 @@ function Home() {
 
   const [isLoading, setIsLoading] = React.useState(false);
   const [recentTxns, setRecentTxns] = React.useState<any[]>(INITIAL_TXNS);
+  const [chartPeriod, setChartPeriod] = React.useState<"7d" | "30d" | "12m">("7d");
+  const [chartData, setChartData] = React.useState<any[]>(SERIES);
 
   const formatAmt = (amtStr: string) => {
     const normalized = amtStr.replace(/[^0-9.-]/g, "");
@@ -75,6 +77,59 @@ function Home() {
     const absVal = Math.abs(val);
     return `${sign}${currencySymbol}${absVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
+
+  const fetchChartData = React.useCallback((period: "7d" | "30d" | "12m") => {
+    if (isMockMode) {
+      if (period === "7d") {
+        setChartData(SERIES);
+      } else if (period === "30d") {
+        const data30 = Array.from({ length: 30 }).map((_, idx) => ({
+          d: `Day ${idx + 1}`,
+          v: 30000 + Math.random() * 20000,
+          p: 28000 + Math.random() * 15000,
+        }));
+        setChartData(data30);
+      } else {
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const data12 = months.map((m) => ({
+          d: m,
+          v: 80000 + Math.random() * 50000,
+          p: 75000 + Math.random() * 40000,
+        }));
+        setChartData(data12);
+      }
+      return;
+    }
+
+    const days = period === "7d" ? 7 : period === "30d" ? 30 : 365;
+    apiFetch<any>(`/dashboard/volume?days=${days}`)
+      .then((data) => {
+        const daily = data?.daily || [];
+        const mapped = daily.map((item: any) => {
+          let label = item.date;
+          try {
+            const dateObj = new Date(item.date);
+            if (period === "7d") {
+              label = dateObj.toLocaleDateString(undefined, { weekday: "short" });
+            } else if (period === "30d") {
+              label = dateObj.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+            } else {
+              label = dateObj.toLocaleDateString(undefined, { month: "short" });
+            }
+          } catch {}
+
+          return {
+            d: label,
+            v: item.volume || 0,
+            p: (item.volume || 0) * 0.85,
+          };
+        });
+        setChartData(mapped);
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch live dashboard volume chart:", err);
+      });
+  }, [isMockMode]);
 
   const fetchRecentTransactions = React.useCallback(() => {
     if (isMockMode) {
@@ -114,6 +169,7 @@ function Home() {
         { d: "Invite finance team", t: "2 of 4", ok: true },
         { d: "Activate live API keys", t: "Pending", ok: false },
       ]);
+      fetchChartData(chartPeriod);
       return;
     }
 
@@ -129,6 +185,12 @@ function Home() {
           setUserName("Acme Corp");
         }),
       fetchRecentTransactions(),
+      new Promise<void>((resolve) => {
+        try {
+          fetchChartData(chartPeriod);
+        } catch {}
+        resolve();
+      }),
       apiFetch<any>("/dashboard/overview")
         .then((data) => {
           setTreasuryBalance(data.treasuryBalance !== undefined ? data.treasuryBalance : 2481302.18);
@@ -153,7 +215,7 @@ function Home() {
     ]).finally(() => {
       setIsLoading(false);
     });
-  }, [isMockMode, fetchRecentTransactions]);
+  }, [isMockMode, fetchRecentTransactions, fetchChartData, chartPeriod]);
 
   if (isLoading && !isMockMode) {
     return (
@@ -287,18 +349,24 @@ function Home() {
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <SectionCard
-            title="Net volume — last 7 days"
-            description="Compared to the same period last week"
+            title={`Net volume — ${chartPeriod === "7d" ? "last 7 days" : chartPeriod === "30d" ? "last 30 days" : "last 12 months"}`}
+            description="Compared to the prior period"
             action={
               <div className="flex gap-1 rounded-md border border-line bg-surface-2 p-0.5 text-xs">
-                {["7D", "30D", "90D", "1Y"].map((p, i) => (
+                {(["7d", "30d", "12m"] as const).map((p) => (
                   <button
                     key={p}
-                    className={`rounded px-2.5 py-1 transition-all cursor-pointer ${
-                      i === 0 ? "bg-ink text-primary-foreground font-medium" : "text-ink-2 hover:text-ink"
+                    onClick={() => {
+                      setChartPeriod(p);
+                      fetchChartData(p);
+                    }}
+                    className={`rounded px-2.5 py-1 transition-all cursor-pointer capitalize ${
+                      chartPeriod === p
+                        ? "bg-ink text-primary-foreground font-medium"
+                        : "text-ink-2 hover:text-ink"
                     }`}
                   >
-                    {p}
+                    {p === "12m" ? "1Y" : p.toUpperCase()}
                   </button>
                 ))}
               </div>
@@ -306,7 +374,7 @@ function Home() {
           >
             <div className="h-[260px] w-full">
               <ResponsiveContainer>
-                <AreaChart data={SERIES} margin={{ top: 10, right: 8, left: -16, bottom: 0 }}>
+                <AreaChart data={chartData} margin={{ top: 10, right: 8, left: -16, bottom: 0 }}>
                   <defs>
                     <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="oklch(0.52 0.21 258)" stopOpacity={0.32} />
