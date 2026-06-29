@@ -60,6 +60,7 @@ export function AppShell({
   const { isMockMode, setApiMode } = useApiMode();
   
   const [userName, setUserName] = useState("Elena Mendes");
+  const [workspaceName, setWorkspaceName] = useState("Acme Corp");
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   const toggleTheme = () => {
@@ -106,6 +107,16 @@ export function AppShell({
       } catch {}
     }
 
+    const storedWorkspace = localStorage.getItem("zia_portal_workspace");
+    if (storedWorkspace) {
+      try {
+        const ws = JSON.parse(storedWorkspace);
+        if (ws.legalName) {
+          setWorkspaceName(ws.legalName);
+        }
+      } catch {}
+    }
+
     // 2. Fetch fresh name from API in live mode
     if (!isMockMode) {
       apiFetch<any>("/profile")
@@ -129,6 +140,17 @@ export function AppShell({
         })
         .catch((err) => {
           console.warn("Failed to fetch fresh profile in AppShell:", err);
+        });
+
+      apiFetch<any>("/workspace")
+        .then((data) => {
+          if (data && data.legalName) {
+            setWorkspaceName(data.legalName);
+            localStorage.setItem("zia_portal_workspace", JSON.stringify(data));
+          }
+        })
+        .catch((err) => {
+          console.warn("Failed to fetch fresh workspace in AppShell:", err);
         });
     }
   }, [isMockMode]);
@@ -155,7 +177,7 @@ export function AppShell({
               <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-3">
                 Workspace
               </div>
-              <div className="mt-0.5 truncate text-sm font-medium text-ink">Acme Corp.</div>
+              <div className="mt-0.5 truncate text-sm font-medium text-ink">{workspaceName}</div>
               <div className="mt-3 border-t border-line/60 pt-2 flex items-center justify-between">
                 <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-3">
                   API Source

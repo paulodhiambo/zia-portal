@@ -43,6 +43,26 @@ interface WebhookEvent {
   time: string;
 }
 
+interface Workspace {
+  id: string;
+  code: string;
+  legalName: string;
+  country: string;
+  defaultCurrency: string;
+  status: string;
+  createdAt: string;
+}
+
+const INITIAL_WORKSPACE: Workspace = {
+  id: "895b70a4-3557-47ee-8c76-3df70e4a2246",
+  code: "M-02D242",
+  legalName: "Acme Corp",
+  country: "KE",
+  defaultCurrency: "KES",
+  status: "active",
+  createdAt: "2026-06-28T09:17:20+03:00",
+};
+
 const INITIAL_EVENTS: WebhookEvent[] = [
   { event: "charge.succeeded", status: "200", time: "10:42:14" },
   { event: "payout.created", status: "200", time: "10:31:02" },
@@ -80,6 +100,78 @@ function Developer() {
   const [hookDialogOpen, setHookDialogOpen] = React.useState(false);
   const [hookUrl, setHookUrl] = React.useState("");
   const [hookStatus, setHookStatus] = React.useState("Healthy");
+
+  // Workspace management state
+  const [workspace, setWorkspace] = React.useState<Workspace | null>(null);
+  const [legalName, setLegalName] = React.useState("");
+  const [country, setCountry] = React.useState("");
+  const [defaultCurrency, setDefaultCurrency] = React.useState("");
+
+  React.useEffect(() => {
+    if (workspace) {
+      setLegalName(workspace.legalName || "");
+      setCountry(workspace.country || "");
+      setDefaultCurrency(workspace.defaultCurrency || "");
+    }
+  }, [workspace]);
+
+  const fetchWorkspace = React.useCallback(() => {
+    if (isMockMode) {
+      const stored = localStorage.getItem("zia_portal_workspace");
+      if (stored) {
+        try {
+          setWorkspace(JSON.parse(stored));
+        } catch {
+          setWorkspace(INITIAL_WORKSPACE);
+        }
+      } else {
+        setWorkspace(INITIAL_WORKSPACE);
+      }
+      return Promise.resolve();
+    }
+    return apiFetch<Workspace>("/workspace")
+      .then((data) => {
+        setWorkspace(data);
+        localStorage.setItem("zia_portal_workspace", JSON.stringify(data));
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch live workspace details:", err);
+        setWorkspace(INITIAL_WORKSPACE);
+      });
+  }, [isMockMode]);
+
+  const handleUpdateWorkspace = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!workspace) return;
+
+    const payload = {
+      legalName: legalName || undefined,
+      country: country || undefined,
+      defaultCurrency: defaultCurrency || undefined,
+    };
+
+    if (isMockMode) {
+      const updated = {
+        ...workspace,
+        ...payload,
+      } as Workspace;
+      setWorkspace(updated);
+      localStorage.setItem("zia_portal_workspace", JSON.stringify(updated));
+      toast.success("Workspace settings updated successfully (Sandbox Mode)");
+      return;
+    }
+
+    apiFetch<Workspace>("/workspace", "PUT", payload)
+      .then((data) => {
+        setWorkspace(data);
+        localStorage.setItem("zia_portal_workspace", JSON.stringify(data));
+        toast.success("Workspace settings updated successfully");
+      })
+      .catch((err) => {
+        console.error("Failed to update workspace:", err);
+        toast.error("Failed to update workspace details.");
+      });
+  };
 
   const fetchKeys = React.useCallback(() => {
     if (isMockMode) {
@@ -155,11 +247,13 @@ function Developer() {
       fetchKeys();
       fetchWebhooks();
       fetchEvents();
+      fetchWorkspace();
       return;
     }
 
     setIsLoading(true);
     Promise.all([
+      fetchWorkspace(),
       new Promise<void>((resolve) => {
         apiFetch<any>("/developer/keys")
           .then((data) => {
@@ -220,7 +314,7 @@ function Developer() {
     ]).finally(() => {
       setIsLoading(false);
     });
-  }, [isMockMode, fetchKeys, fetchWebhooks]);
+  }, [isMockMode, fetchKeys, fetchWebhooks, fetchWorkspace]);
 
   const handleCreateKey = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -577,6 +671,81 @@ function Developer() {
                 ))}
               </ul>
             )}
+          </SectionCard>
+
+          <SectionCard title="Workspace Settings" description="Manage your legal entity details, billing region, and default currency.">
+            <form onSubmit={handleUpdateWorkspace} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="text-xs font-medium text-ink-2">Workspace Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={legalName}
+                    onChange={(e) => setLegalName(e.target.value)}
+                    className="mt-1.5 h-10 w-full rounded-md border border-line bg-surface px-3 text-sm text-ink placeholder:text-ink-3 focus:border-ink/40 focus:outline-none focus:ring-2 focus:ring-cobalt/30"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-ink-2">Default Currency</label>
+                  <select
+                    value={defaultCurrency}
+                    onChange={(e) => setDefaultCurrency(e.target.value)}
+                    className="mt-1.5 h-10 w-full rounded-md border border-line bg-surface px-3 text-sm text-ink focus:border-ink/40 focus:outline-none focus:ring-2 focus:ring-cobalt/30"
+                  >
+                    <option value="KES">KES (Kenyan Shilling)</option>
+                    <option value="USD">USD (US Dollar)</option>
+                    <option value="EUR">EUR (Euro)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="text-xs font-medium text-ink-2">Billing Country</label>
+                  <input
+                    type="text"
+                    required
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    className="mt-1.5 h-10 w-full rounded-md border border-line bg-surface px-3 text-sm text-ink placeholder:text-ink-3 focus:border-ink/40 focus:outline-none focus:ring-2 focus:ring-cobalt/30"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-ink-2 font-mono uppercase tracking-wider">Merchant Status</label>
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-success"></span>
+                    <span className="text-sm font-medium text-ink capitalize">{workspace?.status || "active"}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-line/60 pt-4 space-y-2 text-xs text-ink-3">
+                <div className="flex justify-between">
+                  <span>Merchant ID:</span>
+                  <span className="font-mono">{workspace?.id || "N/A"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Workspace Code:</span>
+                  <span className="font-mono">{workspace?.code || "N/A"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Created At:</span>
+                  <span>{workspace?.createdAt ? new Date(workspace.createdAt).toLocaleDateString(undefined, { dateStyle: "medium" }) : "N/A"}</span>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  className="inline-flex h-9 items-center justify-center rounded-md bg-ink px-4 text-sm font-medium text-primary-foreground hover:bg-ink/90 cursor-pointer"
+                >
+                  Save settings
+                </button>
+              </div>
+            </form>
           </SectionCard>
 
           <SectionCard title="Quickstart" description="Authorize, charge, and listen — in three calls.">
